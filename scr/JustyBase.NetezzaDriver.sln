@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustyBase.NetezzaDriver", "JustyBase.NetezzaDriver\JustyBase.NetezzaDriver.csproj", "{1D54D696-CA2D-453E-87FA-1D71073941C0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustyBase.NetezzaDriver.Benchmarks", "JustyBase.NetezzaDriver.Benchmarks\JustyBase.NetezzaDriver.Benchmarks.csproj", "{58459E94-A787-4F6B-B098-07818A73B8C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustyBase.NetezzaDriver.Tests", "JustyBase.NetezzaDriver.Tests\JustyBase.NetezzaDriver.Tests.csproj", "{0F63FF1C-F583-4F05-AA09-2F5C2A1343B0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1D54D696-CA2D-453E-87FA-1D71073941C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D54D696-CA2D-453E-87FA-1D71073941C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D54D696-CA2D-453E-87FA-1D71073941C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D54D696-CA2D-453E-87FA-1D71073941C0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58459E94-A787-4F6B-B098-07818A73B8C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58459E94-A787-4F6B-B098-07818A73B8C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58459E94-A787-4F6B-B098-07818A73B8C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58459E94-A787-4F6B-B098-07818A73B8C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F63FF1C-F583-4F05-AA09-2F5C2A1343B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F63FF1C-F583-4F05-AA09-2F5C2A1343B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F63FF1C-F583-4F05-AA09-2F5C2A1343B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F63FF1C-F583-4F05-AA09-2F5C2A1343B0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
