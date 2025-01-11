@@ -17,7 +17,7 @@ Code is is based on [nzpy](https://github.com/IBM/nzpy) and [npgsql](https://git
 ## Installation
 JustyBase.NetezzaDriver is available as a NuGet package. You can install it using the following command:
 ```bash
-TODO
+dotnet add package JustyBase.NetezzaDriver
 ```
 
 ## Usage

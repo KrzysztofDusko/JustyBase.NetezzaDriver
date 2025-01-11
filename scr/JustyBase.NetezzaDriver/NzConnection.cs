@@ -1768,7 +1768,6 @@ public sealed class NzConnection : DbConnection
     //    );
     //}
 
-    //to optimize, tested
     public static (int, short, int, byte) IHICUnpack(byte[] data, int index)
     {
         if (data.Length < 11)

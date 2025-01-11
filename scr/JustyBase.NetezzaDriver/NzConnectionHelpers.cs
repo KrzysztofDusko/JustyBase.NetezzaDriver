@@ -252,7 +252,4 @@ internal static class NzConnectionHelpers
         { NzConnection.NzTypeJsonb, "NzTypeJsonb" },
         { NzConnection.NzTypeJsonpath, "NzTypeJsonpath" }
     };
-
-
-
 }

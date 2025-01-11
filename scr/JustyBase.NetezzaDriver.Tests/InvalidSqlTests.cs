@@ -1,13 +1,4 @@
-﻿
-
-using System;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace JustyBase.NetezzaDriver.Tests;
+﻿namespace JustyBase.NetezzaDriver.Tests;
 
 public class InvalidSqlTests
 {
@@ -16,7 +7,7 @@ public class InvalidSqlTests
     [Fact]
     private void ReaderShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var cursor = connection.CreateCommand();
@@ -27,7 +18,7 @@ public class InvalidSqlTests
     [Fact]
     private void ExecuteNonQueryShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var cursor = connection.CreateCommand();
@@ -38,7 +29,7 @@ public class InvalidSqlTests
     [Fact]
     private void ExecuteScalarShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var cursor = connection.CreateCommand();

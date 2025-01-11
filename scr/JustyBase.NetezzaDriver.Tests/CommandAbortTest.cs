@@ -1,11 +1,4 @@
-﻿
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using Xunit.Abstractions;
 
 namespace JustyBase.NetezzaDriver.Tests;
@@ -24,7 +17,7 @@ public class CommandAbortTest
     [Fact]
     public async Task AbortTest1()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
 

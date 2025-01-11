@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using JustyBase.NetezzaDriver;
 using System.Data.Common;
 using System.Data.Odbc;
 
@@ -21,7 +20,7 @@ public class ExternalBench
     [GlobalSetup]
     public void Setup()
     {
-        _nzNewConnection = new NzConnection(_userName, _password, _host, _dbName, _port, logger: null);
+        _nzNewConnection = new NzConnection(_userName, _password, _host, _dbName, _port);
         _nzNewConnection.Open();
 
         _odbcConnection = new OdbcConnection($"Driver={{NetezzaSQL}};servername={_host};port={_port};database={_dbName};username={_userName};password={_password}");

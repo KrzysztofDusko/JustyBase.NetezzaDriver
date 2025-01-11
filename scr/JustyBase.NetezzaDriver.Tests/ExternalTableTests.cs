@@ -1,10 +1,4 @@
 ﻿using JustyBase.NetezzaDriver;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TestProject;
 
@@ -15,7 +9,7 @@ public class ExternalTableTests
     [Fact]
     public void TestExternalTable()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         using NzCommand cursor = (NzCommand)connection.CreateCommand();
         cursor.CommandText = "SELECT TABLENAME FROM JUST_DATA.._V_TABLE WHERE OBJTYPE = 'TABLE' AND TABLENAME NOT LIKE '%EXTERNAL' ORDER BY CREATEDATE ASC";

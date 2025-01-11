@@ -1,6 +1,4 @@
-﻿using Xunit.Abstractions;
-
-namespace JustyBase.NetezzaDriver.Tests;
+﻿namespace JustyBase.NetezzaDriver.Tests;
 
 public class NoticeTests
 {
@@ -9,7 +7,7 @@ public class NoticeTests
     [Fact]
     public void BasicNoticeTests()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480, logger: null);
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480);
         connection.Open();
         using var cursor = connection.CreateCommand();
         List<string> notices = new List<string>();
