@@ -9,7 +9,6 @@ namespace JustyBase.NetezzaDriver.Benchmarks;
 
 
 [MemoryDiagnoser]
-[SimpleJob(RuntimeMoniker.Net80)]
 [SimpleJob(RuntimeMoniker.Net90)]
 public class Benchy
 {
@@ -40,10 +39,11 @@ public class Benchy
         _odbcConnection.Dispose();
     }
     [Params(
-        "SELECT 1,2,3,4,5,6,7,8,9,10 FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 50001"
+        "SELECT 1,2,3,4,5,6,7,8,9,10,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 10001",
         //"SELECT 1,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 10002",
         //"SELECT 2,* FROM JUST_DATA..DIMDATE DD ORDER BY ROWID LIMIT 10003",
-        //"SELECT 3,* FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 50004"
+        //"SELECT 8,'aaaa' FROM JUST_DATA..FACTPRODUCTINVENTORY DD ORDER BY ROWID LIMIT 10003",
+        "SELECT * FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 10004"
         )]
     public string Query { get; set; } = "";
 
@@ -137,3 +137,17 @@ public class Benchy
         }
     }
 }
+
+//| Method             | Query                | Mean     | Error   | StdDev  | Gen0      | Allocated  |
+//|------------------- |--------------------- |---------:|--------:|--------:|----------:|-----------:|
+//| JustyNzDriver      | SELEC(...)10004 [76] | 171.1 ms | 2.65 ms | 2.48 ms |  666.6667 | 7841.31 KB |
+//| NzOdbc             | SELEC(...)10004 [76] | 160.5 ms | 3.18 ms | 4.13 ms | 1000.0000 | 8233.31 KB |
+//| JustyNzDriverTyped | SELEC(...)10004 [76] | 160.5 ms | 3.18 ms | 5.23 ms |  500.0000 | 4793.16 KB |
+//| NzOdbcTyped        | SELEC(...)10004 [76] | 155.4 ms | 1.43 ms | 1.27 ms | 1000.0000 | 8233.31 KB |
+
+//| JustyNzDriver      | SELEC(...)10001 [96] | 125.1 ms | 2.42 ms | 1.89 ms |  500.0000 | 4148.57 KB |
+//| NzOdbc             | SELEC(...)10001 [96] | 141.4 ms | 2.77 ms | 3.98 ms |  500.0000 | 4928.16 KB |
+//| JustyNzDriverTyped | SELEC(...)10001 [96] | 130.8 ms | 2.61 ms | 7.37 ms |         - |  788.86 KB |
+//| NzOdbcTyped        | SELEC(...)10001 [96] | 145.0 ms | 2.85 ms | 4.84 ms |  500.0000 | 4928.16 KB |
+
+//TODO string pooling

@@ -46,12 +46,14 @@ public sealed class NzDataReader : DbDataReader
 
     public override bool GetBoolean(int ordinal)
     {
-        return (bool) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.boolValue;
     }
 
     public override byte GetByte(int ordinal)
     {
-        return (byte) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.byteValue;
     }
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -61,7 +63,8 @@ public sealed class NzDataReader : DbDataReader
 
     public override char GetChar(int ordinal)
     {
-        return (char) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.charValue;
     }
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
@@ -76,17 +79,20 @@ public sealed class NzDataReader : DbDataReader
 
     public override DateTime GetDateTime(int ordinal)
     {
-        return (DateTime) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.dateTimeValue;
     }
 
     public override decimal GetDecimal(int ordinal)
     {
-        return (decimal) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.decimalValue;
     }
 
     public override double GetDouble(int ordinal)
     {
-        return (double) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.doubleValue;
     }
 
     public override IEnumerator GetEnumerator()
@@ -99,7 +105,8 @@ public sealed class NzDataReader : DbDataReader
 
     public override float GetFloat(int ordinal)
     {
-        return (float) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.singleValue;
     }
 
     public override Guid GetGuid(int ordinal)
@@ -109,17 +116,23 @@ public sealed class NzDataReader : DbDataReader
 
     public override short GetInt16(int ordinal)
     {
-        return (short) GetValue(ordinal);
+        //return (short) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.int16Value;
     }
 
     public override int GetInt32(int ordinal)
     {
-        return (int)GetValue(ordinal);
+        //return (int)GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.int32Value;
     }
 
     public override long GetInt64(int ordinal)
     {
-        return (long)GetValue(ordinal);
+        //return (long)GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.int64Value;
     }
 
     public override string GetName(int ordinal) => _cursor.GetName(ordinal);
@@ -129,15 +142,18 @@ public sealed class NzDataReader : DbDataReader
     {
         throw new NotImplementedException();
     }
-
+    //TODO emty string.int etc test.
     public override string GetString(int ordinal)
     {
-        return (string) GetValue(ordinal);
+        //return (string) GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.stringValue;
     }
 
     public override object GetValue(int ordinal)
     {
-        return _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.GetValue();
     }
 
     public override int GetValues(object[] values)
@@ -152,7 +168,8 @@ public sealed class NzDataReader : DbDataReader
 
     public override bool IsDBNull(int ordinal)
     {
-        return GetValue(ordinal) == DBNull.Value;
+        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        return rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty;
     }
 
     public override bool NextResult()

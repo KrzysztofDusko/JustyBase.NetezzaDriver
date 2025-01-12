@@ -8,14 +8,14 @@ public sealed class NzCommand : DbCommand
 {
     internal PreparedStatement? NewPreparedStatement { get; set; } = null;
 
-    private object[] _row = null!;
-    public void AddRow(object[] row)
+    private RowValue[] _row = null!;
+    public void AddRow(RowValue[] row)
     {
         _row = row;
     }
-    public object GetValue(int ordinal)
+    public ref RowValue GetValue(int ordinal)
     {
-        return _row[ordinal];
+        return ref _row[ordinal];
     }
 
     public NzCommand(NzConnection connection)

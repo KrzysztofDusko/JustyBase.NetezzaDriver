@@ -22,7 +22,7 @@ internal sealed class RowDescriptionMessage
         set => _fields[ordinal] = value;
     }
     public int FieldCount => _fields.Length;
-    public Func<byte[], int, int, object>? GetFunc(int i) => _fields?[i]?.CalculationFunc;
+    //public Func<byte[], int, int, object>? GetFunc(int i) => _fields?[i]?.CalculationFunc;
 
 }
 public sealed class FieldDescription
@@ -68,5 +68,5 @@ public sealed class FieldDescription
         _ => typeof(string)//????
     };
 
-    public Func<byte[], int, int, object> CalculationFunc { get; set; } = null!;// ????? FIX THIS
+    //public Func<byte[], int, int, object> CalculationFunc { get; set; } = null!;// ????? FIX THIS
 }
