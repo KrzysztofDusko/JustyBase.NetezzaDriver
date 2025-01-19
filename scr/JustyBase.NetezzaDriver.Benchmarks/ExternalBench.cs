@@ -14,7 +14,9 @@ public class ExternalBench
 
     private const int _port = 5480;
 
-    private DbConnection _nzNewConnection = null!;
+    private NzConnection _nzNewConnection = null!;//default = python
+    private NzConnection _nzNewConnectionDotnet = null!;
+    private NzConnection _nzNewConnectionOdbc= null!;
     private DbConnection _odbcConnection = null!;
 
     [GlobalSetup]
@@ -22,6 +24,12 @@ public class ExternalBench
     {
         _nzNewConnection = new NzConnection(_userName, _password, _host, _dbName, _port);
         _nzNewConnection.Open();
+
+        _nzNewConnectionDotnet = new NzConnection(_userName, _password, _host, _dbName, _port);
+        _nzNewConnectionDotnet.Open(ClientTypeId.SqlDotnet);
+
+        _nzNewConnectionOdbc = new NzConnection(_userName, _password, _host, _dbName, _port);
+        _nzNewConnectionOdbc.Open(ClientTypeId.SqlOdbc);
 
         _odbcConnection = new OdbcConnection($"Driver={{NetezzaSQL}};servername={_host};port={_port};database={_dbName};username={_userName};password={_password}");
         _odbcConnection.Open();
@@ -31,6 +39,8 @@ public class ExternalBench
     public void Cleanup()
     {
         _nzNewConnection.Dispose();
+        _nzNewConnectionDotnet.Dispose();
+        _nzNewConnectionOdbc.Dispose();
         _odbcConnection.Dispose();
     }
 
@@ -38,55 +48,43 @@ public class ExternalBench
     [Benchmark]
     public void ExternalUnloadAndLoadNz()
     {
-        TestOneTableNetezza(_nzNewConnection, "DIMCUSTOMER");
+        TestOneExternalTable(_nzNewConnection, "DIMCUSTOMER","python");
     }
-    private static void TestOneTableNetezza(DbConnection connection, string tablename)
+    //[Benchmark]
+    public void ExternalUnloadAndLoadNzDotnet()
     {
-        using NzCommand cursor = (NzCommand)connection.CreateCommand();
-        var externalPath = $"E:\\{tablename}.dat";
-        var tablenameOrg = $"JUST_DATA..{tablename}";
-        var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
-
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = "DROP TABLE ET_TEMP IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"create external table ET_TEMP '{externalPath}' using ( remotesource 'python' delimiter '|') as select * from {tablenameOrg}";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
-            @"using ( remotesource 'python' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
-        cursor.ExecuteNonQuery();
+        TestOneExternalTable(_nzNewConnectionDotnet, "DIMCUSTOMER", "dotnet");
     }
-
+    //[Benchmark]
+    public void ExternalUnloadAndLoadNzOdbc()
+    {
+        TestOneExternalTable(_nzNewConnectionOdbc, "DIMCUSTOMER", "odbc");
+    }
 
     [Benchmark]
-    public void ExternalUnloadAndLoadOdbc()
+    public void ExternalUnloadAndLoadOriginalOdbc()
     {
-        TestOneTableOdbc(_odbcConnection, "DIMCUSTOMER");
+        TestOneExternalTable(_odbcConnection, "DIMCUSTOMER","odbc");
     }
-    private static void TestOneTableOdbc(DbConnection connection, string tablename)
+    private static void TestOneExternalTable(DbConnection connection, string tablename, string driverName = "odbc")
     {
-        using var cursor = connection.CreateCommand();
+        using var command = connection.CreateCommand();
         var externalPath = $"E:\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = "DROP TABLE ET_TEMP IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"create external table ET_TEMP '{externalPath}' using ( remotesource 'odbc' delimiter '|') as select * from {tablenameOrg}";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
-            @"using ( remotesource 'odbc' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
-        cursor.ExecuteNonQuery();
+        command.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = "DROP TABLE ET_TEMP IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = $"create external table ET_TEMP '{externalPath}' using ( remotesource '{driverName}' delimiter '|') as select * from {tablenameOrg}";
+        command.ExecuteNonQuery();
+        command.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
+        command.ExecuteNonQuery();
+        command.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
+            @$"using ( remotesource '{driverName}' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
+        command.ExecuteNonQuery();
     }
 }

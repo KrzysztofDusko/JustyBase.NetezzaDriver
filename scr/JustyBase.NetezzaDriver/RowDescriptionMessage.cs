@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JustyBase.NetezzaDriver.StringPool;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -9,23 +10,26 @@ namespace JustyBase.NetezzaDriver;
 
 internal sealed class RowDescriptionMessage
 {
-    //readonly Dictionary<string, int> _nameIndex;
+    private readonly Dictionary<string, int> _nameIndex;
     private readonly FieldDescription?[] _fields;
     public RowDescriptionMessage(int numFields)
     {
         _fields = new FieldDescription[numFields];
-        //_nameIndex = new Dictionary<string, int>();
+        _nameIndex = new Dictionary<string, int>();
     }
     public FieldDescription this[int ordinal]
     {
         get => _fields[ordinal]!;
-        set => _fields[ordinal] = value;
+        set
+        { 
+            _fields[ordinal] = value;
+            _nameIndex[value.Name] = ordinal;
+        }
     }
     public int FieldCount => _fields.Length;
-    //public Func<byte[], int, int, object>? GetFunc(int i) => _fields?[i]?.CalculationFunc;
-
+    public int FieldIndex(string name) => _nameIndex[name];
 }
-public sealed class FieldDescription
+internal sealed class FieldDescription
 {
     internal string Name { get; set; } = null!;
     internal uint TypeOID { get; set; }
@@ -67,6 +71,5 @@ public sealed class FieldDescription
         //_ => typeof(object)//????
         _ => typeof(string)//????
     };
-
-    //public Func<byte[], int, int, object> CalculationFunc { get; set; } = null!;// ????? FIX THIS
+    public Sylvan StringPool { get; set; } = null!;
 }

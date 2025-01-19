@@ -1,6 +1,6 @@
 ﻿using JustyBase.NetezzaDriver;
 
-namespace TestProject;
+namespace JustyBase.NetezzaDriver.Tests;
 
 public class ExternalTableTests
 {
@@ -10,10 +10,10 @@ public class ExternalTableTests
     public void TestExternalTable()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
-        connection.Open();
-        using NzCommand cursor = (NzCommand)connection.CreateCommand();
-        cursor.CommandText = "SELECT TABLENAME FROM JUST_DATA.._V_TABLE WHERE OBJTYPE = 'TABLE' AND TABLENAME NOT LIKE '%EXTERNAL' ORDER BY CREATEDATE ASC";
-        using var reader = cursor.ExecuteReader();
+        connection.Open(ClientTypeId.SqlJdbc);
+        using NzCommand command = (NzCommand)connection.CreateCommand();
+        command.CommandText = "SELECT TABLENAME FROM JUST_DATA.._V_TABLE WHERE OBJTYPE = 'TABLE' AND TABLENAME NOT LIKE '%EXTERNAL' ORDER BY CREATEDATE ASC";
+        using var reader = command.ExecuteReader();
         var tableNames = new List<string>();
         while (reader.Read())
         {
@@ -22,45 +22,45 @@ public class ExternalTableTests
 
         Assert.True(tableNames.Count > 10);
         Assert.True(tableNames.Count < 100);
-        foreach (var tn in tableNames.Take(3))
+        foreach (var tn in tableNames.Take(5))
         {
             Assert.NotNull(tn);
-            TestOneTable(cursor, tn);
+            TestOneTable(command, tn, "jdbc");
         }
     }
 
-    private static void TestOneTable(NzCommand cursor, string tablename)
+    private static void TestOneTable(NzCommand command, string tablename, string driverName = "python")
     {
         var externalPath = $"E:\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"DROP TABLE ET_TEMP IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"create external table ET_TEMP '{externalPath}' using ( remotesource 'python' delimiter '|') as select * from {tablenameOrg}";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
-        cursor.ExecuteNonQuery();
-        cursor.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
-            @"using ( remotesource 'python' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
-        cursor.ExecuteNonQuery();
+        command.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = $"DROP TABLE ET_TEMP IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = $"create external table ET_TEMP '{externalPath}' using ( remotesource '{driverName}' delimiter '|') as select * from {tablenameOrg}";
+        command.ExecuteNonQuery();
+        command.CommandText = $"DROP TABLE {tablenameNew} IF EXISTS";
+        command.ExecuteNonQuery();
+        command.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
+        command.ExecuteNonQuery();
+        command.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
+            @$"using ( remotesource '{driverName}' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
+        command.ExecuteNonQuery();
 
-        cursor.CommandText = $"SELECT count(1) FROM {tablenameOrg}";
-        using var rd1 = cursor.ExecuteReader();
+        command.CommandText = $"SELECT count(1) FROM {tablenameOrg}";
+        using var rd1 = command.ExecuteReader();
         rd1.Read();
         long cnt_org = rd1.GetInt64(0);
-        cursor.CommandText = $"SELECT count(1) FROM {tablenameNew}";
-        using var rd2 = cursor.ExecuteReader();
+        command.CommandText = $"SELECT count(1) FROM {tablenameNew}";
+        using var rd2 = command.ExecuteReader();
         rd2.Read();
         long cnt_new = rd2.GetInt64(0);
 
         Assert.Equal(cnt_org, cnt_new);
-        cursor.CommandText = $"SELECT *  FROM {tablenameNew} minus SELECT *  FROM {tablenameOrg}";
-        using var rd3 = cursor.ExecuteReader();
+        command.CommandText = $"SELECT *  FROM {tablenameNew} minus SELECT *  FROM {tablenameOrg}";
+        using var rd3 = command.ExecuteReader();
         int cnt = 0;
         while (rd3.Read())
         {

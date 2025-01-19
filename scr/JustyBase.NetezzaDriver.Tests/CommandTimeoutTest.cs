@@ -21,9 +21,9 @@ public class CommandTimeoutTest
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(4);
 
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
-        cursor.ExecuteNonQuery();
+        using var command = connection.CreateCommand();
+        command.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
+        command.ExecuteNonQuery();
 
         for (int i = 0; i < 5; i++)
         {
@@ -32,8 +32,8 @@ public class CommandTimeoutTest
             {
                 stopwatch.Restart();
                 _output.WriteLine($"STARTED PID = {connection.Pid}");
-                cursor.CommandText = _heavySql;
-                cursor.ExecuteNonQuery();
+                command.CommandText = _heavySql;
+                command.ExecuteNonQuery();
             }
             catch (Exception ex1)
             {
@@ -43,8 +43,8 @@ public class CommandTimeoutTest
                 Assert.True(stopwatch.Elapsed > TimeSpan.FromSeconds(3.5));
                 Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(8.5));
 
-                cursor.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
-                using var rdr2 = cursor.ExecuteReader();
+                command.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
+                using var rdr2 = command.ExecuteReader();
                 rdr2.Read();
                 Assert.Equal(0, rdr2.GetInt64(0));
        
@@ -57,8 +57,8 @@ public class CommandTimeoutTest
         }
 
         //await Task.Delay(200);
-        cursor.CommandText = "SELECT * FROM ABC";
-        using var rdr = cursor.ExecuteReader();
+        command.CommandText = "SELECT * FROM ABC";
+        using var rdr = command.ExecuteReader();
         rdr.Read();//do not throws.
 
     }

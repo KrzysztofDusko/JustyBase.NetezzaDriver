@@ -1,4 +1,6 @@
-﻿namespace JustyBase.NetezzaDriver;
+﻿using JustyBase.NetezzaDriver.Utility;
+
+namespace JustyBase.NetezzaDriver.AbortQuery;
 
 /// <summary>
 /// Provides methods for sending cancel requests to the server.

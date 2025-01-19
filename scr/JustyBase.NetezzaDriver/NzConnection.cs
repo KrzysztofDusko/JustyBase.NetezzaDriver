@@ -1,7 +1,11 @@
-﻿using System.Buffers;
+﻿using JustyBase.NetezzaDriver.AbortQuery;
+using JustyBase.NetezzaDriver.Logging;
+using JustyBase.NetezzaDriver.StringPool;
+using JustyBase.NetezzaDriver.TypeConvertions;
+using JustyBase.NetezzaDriver.Utility;
+using System.Buffers;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Text;
@@ -195,7 +199,7 @@ public sealed class NzConnection : DbConnection
     /// </summary>
     private bool ConnSendQuery(string dateStyle = "ISO")
     {
-        if (!Execute(_cursor, "set nz_encoding to 'utf8'"))
+        if (!Execute(_nzCommand, "set nz_encoding to 'utf8'"))
             return false;
 
         // Set the Datestyle to the format the driver expects
@@ -206,7 +210,7 @@ public sealed class NzConnection : DbConnection
             _ => "set DateStyle to 'ISO'"
         };
 
-        if (!Execute(_cursor, query))
+        if (!Execute(_nzCommand, query))
             return false;
 
         var systemArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
@@ -218,8 +222,8 @@ public sealed class NzConnection : DbConnection
         'OS Platform: {Environment.OSVersion}',
         'OS Username: {Environment.UserName}'";
 
-        _cursor.CommandText = clientInfo;
-        using var rdr = _cursor.ExecuteReader();
+        _nzCommand.CommandText = clientInfo;
+        using var rdr = _nzCommand.ExecuteReader();
 
         while (rdr.Read())
         {
@@ -231,12 +235,12 @@ public sealed class NzConnection : DbConnection
         }
 
 
-        if (!Execute(_cursor, $"SET CLIENT_VERSION = '{NzConnectionHelpers.NZPY_CLIENT_VERSION}'"))
+        if (!Execute(_nzCommand, $"SET CLIENT_VERSION = '{NzConnectionHelpers.NZPY_CLIENT_VERSION}'"))
             return false;
 
 
-        _cursor.CommandText = @"select ascii(' ') as space, encoding as ccsid from _v_database where objid = current_db";
-        using var rdr2 = _cursor.ExecuteReader();
+        _nzCommand.CommandText = @"select ascii(' ') as space, encoding as ccsid from _v_database where objid = current_db";
+        using var rdr2 = _nzCommand.ExecuteReader();
         while (rdr2.Read())
         {
             var row = new object[2];
@@ -244,17 +248,17 @@ public sealed class NzConnection : DbConnection
             _logger?.LogDebug("Space: {row[0]}, CCSID: {row[1]}", row[0], row[1]);
         }
 
-        _cursor.CommandText = @"select feature from _v_odbc_feature where spec_level = '3.5'";
-        using var rdr3 = _cursor.ExecuteReader();
+        _nzCommand.CommandText = @"select feature from _v_odbc_feature where spec_level = '3.5'";
+        using var rdr3 = _nzCommand.ExecuteReader();
         while (rdr3.Read())
         {
             var row = new object[1];
             rdr3.GetValues(row);
             _logger?.LogDebug("Feature: {row[0]}", row[0]);
         }
-        _cursor.CommandText = "select identifier_case, current_catalog, current_user";
+        _nzCommand.CommandText = "select identifier_case, current_catalog, current_user";
 
-        using var rdr4 = _cursor.ExecuteReader();
+        using var rdr4 = _nzCommand.ExecuteReader();
         while (rdr4.Read())
         {
             var row = new object[3];
@@ -291,24 +295,24 @@ public sealed class NzConnection : DbConnection
 
     public void Commit()
     {
-        Execute(this._cursor, "commit");
+        Execute(this._nzCommand, "commit");
     }
 
     public void Rollback()
     {
         if (this.InTransaction)
         {
-            Execute(this._cursor, "rollback");
+            Execute(this._nzCommand, "rollback");
             InTransaction = false;
         }
     }
 
-    private void PreExecution(NzCommand cursor, string query)
+    private void PreExecution(NzCommand nzCommand, string query)
     {
         _error = null;
-        cursor._recordsAffected = -1;
-        cursor.NewPreparedStatement = new PreparedStatement();
-        cursor.NewPreparedStatement.Sql = query;
+        nzCommand._recordsAffected = -1;
+        nzCommand.NewPreparedStatement = new PreparedStatement();
+        nzCommand.NewPreparedStatement.Sql = query;
         //if (State == ConnectionState.Executing)
         if (State != ConnectionState.Connecting)
         {
@@ -369,7 +373,7 @@ public sealed class NzConnection : DbConnection
     {
         if (notice.StartsWith("NOTICE:"))
         {
-            notice = notice.Substring("NOTICE:".Length);
+            notice = notice["NOTICE:".Length..];
         }
         notice = notice.Trim().TrimEnd('\x00');
         NoticeReceived?.Invoke(notice);
@@ -389,6 +393,11 @@ public sealed class NzConnection : DbConnection
 
     private ConnectionState _state = ConnectionState.Closed;
     public override ConnectionState State => _state;
+
+    internal void SetState(ConnectionState state)
+    {
+        _state = state;
+    }
 
     private DbosTupleDesc _tupdesc = null!;
 
@@ -423,13 +432,13 @@ public sealed class NzConnection : DbConnection
     }
 
 
-    public bool Execute(NzCommand cursor, string query)
+    public bool Execute(NzCommand nzCommand, string query)
     {
-        PreExecution(cursor, query);
+        PreExecution(nzCommand, query);
         HandleTimeout();
         _nextRelatedFileStream = null!;
 
-        while (DoNextStep(cursor)) ;
+        while (DoNextStep(nzCommand)) ;
         var response = true;
 
         if (_error != null)
@@ -440,12 +449,12 @@ public sealed class NzConnection : DbConnection
         return response;
     }
 
-    public NzDataReader ExecuteReader(NzCommand cursor, string query)
+    public NzDataReader ExecuteReader(NzCommand nzCommand, string query)
     {
-        PreExecution(cursor, query);
+        PreExecution(nzCommand, query);
         HandleTimeout();
         _nextRelatedFileStream = null!;
-        var rdr =  new NzDataReader(cursor);
+        var rdr =  new NzDataReader(nzCommand);
         if (_error != null)
         {
             throw new NetezzaException(_error);
@@ -465,95 +474,122 @@ public sealed class NzConnection : DbConnection
     {
         return _lastResponse == (byte)BackendMessageCode.RowDescription;
     }
-
-    internal bool DoNextStep(NzCommand cursor)
+    internal bool IsCommandComplete()
     {
-        var response = _stream.ReadByte();
-        _lastResponse = response;
-        _logger?.LogDebug("Backend response: {Response}", (char)response);
+        return _lastResponse == (byte)BackendMessageCode.CommandComplete;
+    }
+
+    internal bool DoNextStep(NzCommand nzCommand)
+    {
+        if (_shouldReadByte)
+        {
+            ReadNextResponseByte();
+        }
+        var res = IntepretReturnedByte(nzCommand);
+        return res;
+    }
+
+    internal void ReadNextResponseByte()
+    {
+        _lastResponse = _stream.ReadByte();
+        _shouldReadByte = false;
+    }
+    private bool _shouldReadByte = true;
+
+    private bool IntepretReturnedByte(NzCommand nzCommand)
+    {
+        _shouldReadByte = true;
+        _logger?.LogDebug("Backend response: {Response}", (char)_lastResponse);
         PGUtil.Skip4Bytes(_stream);
 
-        if (response == (byte)BackendMessageCode.CommandComplete)
+        if (_lastResponse == (byte)BackendMessageCode.CommandComplete)
         {
             // portal query command, no tuples returned
             int length = PGUtil.ReadInt32(_stream);
-            var data = Read(length);
-            HandleCommandComplete(data, cursor);
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            HandleCommandComplete(data, length,  nzCommand);
             //returnet data informs about command type (SELECT/SET VARIABLE/...)
-            _logger?.LogDebug("Response received from backend: {Data}", Encoding.UTF8.GetString(data));
+            _logger?.LogDebug("Response received from backend: {Data}", Encoding.UTF8.GetString(data, 0, length));
         }
-        else if (response == (byte)BackendMessageCode.ReadyForQuery)
+        else if (_lastResponse == (byte)BackendMessageCode.ReadyForQuery)
         {
             return false;
         }
-        else if (response == (byte)'L')
+        else if (_lastResponse == (byte)'L')
         {
             return false;
         }
-        else if (response == (byte)'0')
+        else if (_lastResponse == (byte)'0')
         {
             //return true;
         }
-        else if (response == (byte)'A')
+        else if (_lastResponse == (byte)'A')
         {
             //return true;
         }
-        else if (response == (byte)'P')//80
-        {
-            int length = PGUtil.ReadInt32(_stream);
-            var readed = Read(length);
-            _logger?.LogDebug("Response received from backend: {Data}", Encoding.UTF8.GetString(readed));
-            //doContinue = true;
-        }
-        else if (response == (byte)BackendMessageCode.ErrorResponse)
-        {
-            int length = PGUtil.ReadInt32(_stream);
-            _error = Encoding.UTF8.GetString(Read(length));
-            _logger?.LogDebug("Response received from backend: {_error}", _error);
-            //doContinue = true;
-        }
-        //this STARTS (after 'P') single rowset
-        else if (response == (byte)BackendMessageCode.RowDescription)
-        {
-            int length = PGUtil.ReadInt32(_stream);
-            cursor.NewPreparedStatement ??= new PreparedStatement();
-            NzConnection.HandleRowDescription(Read(length), cursor);
-            // We've got row_desc that allows us to identify what we're going to get back from this statement.
-            //cursor.NewPreparedStatement.input_funcs = cursor.NewPreparedStatement!.Description!.GetFuncArray;
-        }
-        else if (response == (byte)BackendMessageCode.DataRow)//read rows in schema/system queries - hot path
+        else if (_lastResponse == (byte)'P')//80
         {
             int length = PGUtil.ReadInt32(_stream);
             RegenerateBuffer(length);
             var data = Read(length, _tmp_buffer);
-            HandleDataRow(data, cursor); 
+            _logger?.LogDebug("Response received from backend: {Data}", Encoding.UTF8.GetString(data, 0, length));
+            //doContinue = true;
         }
-        else if (response == (byte)BackendMessageCode.RowDescriptionStandard)// metadata for standard query, occurs after BackendMessageCode.RowDescription
+        else if (_lastResponse == (byte)BackendMessageCode.ErrorResponse)
+        {
+            int length = PGUtil.ReadInt32(_stream);
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            _error = Encoding.UTF8.GetString(data,0,length);
+            _logger?.LogDebug("Response received from backend: {_error}", _error);
+            //doContinue = true;
+        }
+        //this STARTS (after 'P') single rowset
+        else if (_lastResponse == (byte)BackendMessageCode.RowDescription)
+        {
+            int length = PGUtil.ReadInt32(_stream);
+            nzCommand.NewPreparedStatement ??= new PreparedStatement();
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            NzConnection.HandleRowDescription(data, nzCommand);
+            // We've got row_desc that allows us to identify what we're going to get back from this statement.
+            //nzCommand.NewPreparedStatement.input_funcs = nzCommand.NewPreparedStatement!.Description!.GetFuncArray;
+        }
+        else if (_lastResponse == (byte)BackendMessageCode.DataRow)//read rows in schema/system queries - hot path
+        {
+            int length = PGUtil.ReadInt32(_stream);
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            HandleDataRow(data, nzCommand); 
+        }
+        else if (_lastResponse == (byte)BackendMessageCode.RowDescriptionStandard)// metadata for standard query, occurs after BackendMessageCode.RowDescription
         {
             int length = PGUtil.ReadInt32(_stream);
             _tupdesc = new DbosTupleDesc();
-            var data = Read(length);//TODO alocation
-            ResGetDbosColumnDescriptions(data, _tupdesc);
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            ResGetDbosColumnDescriptions(data);
             //doContinue = true;
         }
-        else if (response == (byte)BackendMessageCode.RowStandard)//!!!!!!, main hot path - read rows
+        else if (_lastResponse == (byte)BackendMessageCode.RowStandard)//!!!!!!, main hot path - read rows
         {
-            ResReadDbosTuple(cursor, _tupdesc);
+            ResReadDbosTuple(nzCommand);
             //Thread.Sleep(50);
             //doContinue = true;
         }
-        else if (response == (byte)'u')
+        else if (_lastResponse == (byte)'u')
         {
             // unload - initialize application protocol
             // in ODBC, the first 10 bytes are utilized to populate clientVersion, formatType and bufSize
             // these are not needed in go lang, hence ignoring 10 bytes
             PGUtil.Skip4Bytes(_stream, 10);
             // Next 16 bytes are Reserved Bytes for future extension
-            PGUtil.Skip4Bytes(_stream, 16);//TODO skip without alocation
+            PGUtil.Skip4Bytes(_stream, 16);
                                            // Get the filename (specified in dataobject)
             int length = PGUtil.ReadInt32(_stream);
             var fnameBuf = Read(length);//this should be short
-            var finaName = Encoding.UTF8.GetString(fnameBuf);
+            var finaName = Encoding.UTF8.GetString(fnameBuf,0,length);
             try
             {
                 _nextRelatedFileStream = new FileStream(finaName, FileMode.OpenOrCreate, FileAccess.Write);
@@ -568,22 +604,22 @@ public sealed class NzConnection : DbConnection
                 _logger?.LogWarning("Error while opening file");
             }
         }
-        else if (response == (byte)'U')
+        else if (_lastResponse == (byte)'U')
         {
             // handle unload data
             ReceiveAndWriteDataToExternal(_nextRelatedFileStream);
         }
-        else if (response == (byte)'l')
+        else if (_lastResponse == (byte)'l')
         {
             XferTable();
         }
-        else if (response == (byte)'x')
+        else if (_lastResponse == (byte)'x')
         {
             // handle Ext Tbl parser abort
             PGUtil.Skip4Bytes(_stream);
             _logger?.LogWarning("Error operation cancel");
         }
-        else if (response == (byte)'e')
+        else if (_lastResponse == (byte)'e')
         {
             int length = PGUtil.ReadInt32(_stream);
             string logDir = Encoding.UTF8.GetString(Read(length - 1));
@@ -609,20 +645,24 @@ public sealed class NzConnection : DbConnection
             }
             //doContinue = true;
         }
-        else if (response == (byte)BackendMessageCode.NoticeResponse)
+        else if (_lastResponse == (byte)BackendMessageCode.NoticeResponse)
         {
             int length = PGUtil.ReadInt32(_stream);
-            string notice = Encoding.UTF8.GetString(Read(length));
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            string notice = Encoding.UTF8.GetString(data[0..length]);
             OnNoticeReceived(notice);
             _logger?.LogDebug("Response received from backend: {Notice}", notice);
         }
-        else if (response == (byte)'I')
+        else if (_lastResponse == (byte)'I')
         {
             int length = PGUtil.ReadInt32(_stream);
-            string notice = Encoding.UTF8.GetString(Read(length));
+            RegenerateBuffer(length);
+            var data = Read(length, _tmp_buffer);
+            string notice = Encoding.UTF8.GetString(data[0..length]);
             OnNoticeReceived(notice);
             _logger?.LogDebug("Response received from backend: {Notice}", notice);
-            cursor.AddRow([]);
+            nzCommand.AddRow([]);
         }
 
         return true;
@@ -745,7 +785,7 @@ public sealed class NzConnection : DbConnection
             throw new NullReferenceException(nameof(fh));
         }
 
-        using (StreamWriter writer = new StreamWriter(fh))
+        using (StreamWriter writer = new StreamWriter(fh, Encoding.UTF8))
         {
             while (true)
             {
@@ -755,14 +795,18 @@ public sealed class NzConnection : DbConnection
                 {
                     break;
                 }
-
-                string dataBuffer = NzConnectionHelpers.ClientEncoding.GetString(Read(numBytes));
-
+                RegenerateBuffer(numBytes);
+                var data = Read(numBytes, _tmp_buffer);
                 if (status)
                 {
                     try
                     {
-                        writer.Write(dataBuffer);
+                        int maxCharCount = NzConnectionHelpers.ClientEncoding.GetMaxCharCount(numBytes);
+                        char[] tmpChars = ArrayPool<char>.Shared.Rent(maxCharCount);
+                        int charsWritten = NzConnectionHelpers.ClientEncoding.GetChars(data, 0, numBytes, tmpChars, 0);
+                        writer.Write(tmpChars,0, charsWritten);
+                        writer.Flush();
+                        ArrayPool<char>.Shared.Return(tmpChars);
                         _logger?.LogInformation("Successfully written data into file: {FullPath}", fullpath);
                     }
                     catch (Exception)
@@ -848,65 +892,98 @@ public sealed class NzConnection : DbConnection
         }
     }
 
-    private void ResGetDbosColumnDescriptions(byte[] data, DbosTupleDesc tupdesc)
+    private void ResGetDbosColumnDescriptions(byte[] data)
     {
         int dataIdx = 0;
-        tupdesc.Version = IUnpack(data, dataIdx);
-        tupdesc.NullsAllowed = IUnpack(data, dataIdx + 4);
-        tupdesc.SizeWord = IUnpack(data, dataIdx + 8);
-        tupdesc.SizeWordSize = IUnpack(data, dataIdx + 12);
-        tupdesc.NumFixedFields = IUnpack(data, dataIdx + 16);
-        tupdesc.NumVaryingFields = IUnpack(data, dataIdx + 20);
-        tupdesc.FixedFieldsSize = IUnpack(data, dataIdx + 24);
-        tupdesc.MaxRecordSize = IUnpack(data, dataIdx + 28);
-        tupdesc.NumFields = IUnpack(data, dataIdx + 32);
+        _tupdesc.Version = IUnpack(data, dataIdx);
+        _tupdesc.NullsAllowed = IUnpack(data, dataIdx + 4);
+        _tupdesc.SizeWord = IUnpack(data, dataIdx + 8);
+        _tupdesc.SizeWordSize = IUnpack(data, dataIdx + 12);
+        _tupdesc.NumFixedFields = IUnpack(data, dataIdx + 16);
+        _tupdesc.NumVaryingFields = IUnpack(data, dataIdx + 20);
+        _tupdesc.FixedFieldsSize = IUnpack(data, dataIdx + 24);
+        _tupdesc.MaxRecordSize = IUnpack(data, dataIdx + 28);
+        _tupdesc.NumFields = IUnpack(data, dataIdx + 32);
 
         dataIdx += 36;
-        for (int ix = 0; ix < tupdesc.NumFields; ix++)
+        for (int ix = 0; ix < _tupdesc.NumFields; ix++)
         {
             //https://github.com/IBM/nzpy/issues/61
             var ft = IUnpack(data, dataIdx);
 
-            if (ft == NzTypeInt && _cursor?.NewPreparedStatement?.Description?[ix].TypeOID == 702)
+            if (ft == NzTypeInt && _nzCommand?.NewPreparedStatement?.Description?[ix].TypeOID == 702)
             {
-                tupdesc.FieldType.Add(NzTypeIntvsAbsTimeFIX);
+                _tupdesc.FieldType.Add(NzTypeIntvsAbsTimeFIX);
             }
             else
             {
-                tupdesc.FieldType.Add(ft);
+                _tupdesc.FieldType.Add(ft);
             }
 
-            tupdesc.FieldSize.Add(IUnpack(data, dataIdx + 4));
-            tupdesc.FieldTrueSize.Add(IUnpack(data, dataIdx + 8));
-            tupdesc.FieldOffset.Add(IUnpack(data, dataIdx + 12));
-            tupdesc.FieldPhysField.Add(IUnpack(data, dataIdx + 16));
-            tupdesc.FieldLogField.Add(IUnpack(data, dataIdx + 20));
-            tupdesc.FieldNullAllowed.Add(IUnpack(data, dataIdx + 24) != 0);
-            tupdesc.FieldFixedSize.Add(IUnpack(data, dataIdx + 28));
-            tupdesc.FieldSpringField.Add(IUnpack(data, dataIdx + 32));
+            _tupdesc.FieldSize.Add(IUnpack(data, dataIdx + 4));
+            _tupdesc.FieldTrueSize.Add(IUnpack(data, dataIdx + 8));
+            _tupdesc.FieldOffset.Add(IUnpack(data, dataIdx + 12));
+            _tupdesc.FieldPhysField.Add(IUnpack(data, dataIdx + 16));
+            _tupdesc.FieldLogField.Add(IUnpack(data, dataIdx + 20));
+            _tupdesc.FieldNullAllowed.Add(IUnpack(data, dataIdx + 24) != 0);
+            _tupdesc.FieldFixedSize.Add(IUnpack(data, dataIdx + 28));
+            _tupdesc.FieldSpringField.Add(IUnpack(data, dataIdx + 32));
             dataIdx += 36;
         }
 
-        tupdesc.DateStyle = IUnpack(data, dataIdx);
-        tupdesc.EuroDates = IUnpack(data, dataIdx + 4);
+        _tupdesc.DateStyle = IUnpack(data, dataIdx);
+        _tupdesc.EuroDates = IUnpack(data, dataIdx + 4);
     }
 
 
     private byte[] _tmp_buffer;
     private RowValue[]? _row;
 
+
+    public bool UseStringPool { get; set; } = true;
+
+    private string GetStandardString(int curField, Span<byte> spanData, Encoding encoding)
+    {
+        var sp = _nzCommand?.GetColumnStringPool(curField);
+        if (UseStringPool && sp is not null)
+        {
+            return sp.GetString(spanData, encoding);
+        }
+        else
+        {
+            return encoding.GetString(spanData);
+        }
+    }
+    
+    private string GetFixedLenString(int curField, Span<byte> fieldDataP, int fldlen, int cursize)
+    {
+        Span<char> chars = fldlen < 120 ? stackalloc char[fldlen] : new char[fldlen];
+        NzConnectionHelpers.ClientEncoding.TryGetChars(fieldDataP.Slice(2, cursize), chars, out int charsRead);
+        chars[charsRead..fldlen].Fill(' ');
+        var spanData = chars[0..fldlen];
+        var sp = _nzCommand?.GetColumnStringPool(curField);
+        if (UseStringPool && sp is not null)
+        {
+            return sp.GetString(spanData);
+        }
+        else
+        {
+            return new string(spanData);
+        }
+    }
+
     /// <summary>
     /// reading rows = standard. most common way
     /// main hot path
     /// </summary>
-    /// <param name="cursor"></param>
+    /// <param name="nzCommand"></param>
     /// <param name="tupdesc">can by used local _tupdesc ?? </param>
     /// boxing TODO, (row[fieldLf] = value, where row is object[] and value is int/long etc..)
     /// use string interning ?
     /// use some "field value struct instead of object? " - to reduce boxing (like FieldInfo in SpreadSheetTasks)
-    private void ResReadDbosTuple(NzCommand cursor, DbosTupleDesc tupdesc)
+    private void ResReadDbosTuple(NzCommand nzCommand)
     {
-        int numFields = tupdesc.NumFields;
+        int numFields = _tupdesc.NumFields;
         int length = PGUtil.ReadInt32(_stream);//row length
 
         _logger?.LogDebug("Length of the message from backend: {Length}", length);
@@ -914,9 +991,8 @@ public sealed class NzConnection : DbConnection
         _logger?.LogDebug("Length of the message from backend: {Length}", length);
 
         RegenerateBuffer(length);
-
         byte[] data = Read(length, _tmp_buffer);
-        _logger?.LogDebug("Actual message is: {Data}", BitConverter.ToString(data));
+        _logger?.LogDebug("Actual message is: {Data}", BitConverter.ToString(data,0,length));
 
         if (_row is null || _row.Length < numFields)
         {
@@ -930,13 +1006,13 @@ public sealed class NzConnection : DbConnection
         {
             ref RowValue rowValue = ref _row[fieldLf];
             //CTableFieldAt can span be used here ? - to reduce alocation
-            Span<byte> fieldDataP = CTableFieldAt(tupdesc, data, curField);
+            Span<byte> fieldDataP = CTableFieldAt(data, curField);
 
             //var standardImplementation = bitmap[tupdesc.FieldPhysField[fieldLf]] == 1;
             //Debug.Assert(standardImplementation == res);
 
             // a bitmap with value of 1 denotes null column
-            if (ColumnIsNull(tupdesc, data, fieldLf))
+            if (ColumnIsNull(_tupdesc, data, fieldLf))
             {
                 rowValue.typeCode = TypeCodeEx.Empty;
                 _logger?.LogDebug("field={Field}, value= NULL", curField + 1);
@@ -947,54 +1023,17 @@ public sealed class NzConnection : DbConnection
 
             // Fldlen is byte-length of backend-datatype
             // memsize is byte-length of ODBC-datatype or internal-datatype for (Numeric/Interval)
-            int fldlen = CTableIFieldSize(tupdesc, curField);
-            //int memsize = fldlen;//what for is this ?
-            int fldtype = CTableIFieldType(tupdesc, curField);
+            int fldlen = CTableIFieldSize(curField);
+            int fldtype = CTableIFieldType(curField);
 
             if (fldtype == NzTypeUnknown)
             {
                 fldtype = NzTypeVarChar;
-                //memsize += 1;
-            }
-            //if (fldtype == NzTypeChar || fldtype == NzTypeVarChar || fldtype == NzTypeVarFixedChar ||
-            //    fldtype == NzTypeGeometry || fldtype == NzTypeVarBinary)
-            //{
-            //    memsize += 1;
-            //}
-            //if (fldtype == NzTypeNChar || fldtype == NzTypeNVarChar || fldtype == NzTypeJson ||
-            //    fldtype == NzTypeJsonb || fldtype == NzTypeJsonpath)
-            //{
-            //    memsize *= 4;
-            //    memsize += 1;
-            //}
-            //if (fldtype == NzTypeDate)
-            //{
-            //    memsize = 12;
-            //}
-            //if (fldtype == NzTypeTime)
-            //{
-            //    memsize = 8;
-            //}
-            //if (fldtype == NzTypeInterval)
-            //{
-            //    memsize = 12;
-            //}
-            //if (fldtype == NzTypeTimeTz)
-            //{
-            //    memsize = 15;
-            //}
-            //if (fldtype == NzTypeTimestamp)
-            //{
-            //    memsize = 8;
-            //}
-            //if (fldtype == NzTypeBool)
-            //{
-            //    memsize = 1;
-            //}
+            }            
 
             if (fldtype == NzTypeChar)
             {
-                string value = NzConnectionHelpers.CharVarcharEncoding.GetString(fieldDataP.Slice(0, fldlen));
+                string value = GetStandardString(curField, fieldDataP.Slice(0, fldlen), NzConnectionHelpers.CharVarcharEncoding);
                 rowValue.typeCode = TypeCodeEx.String;
                 rowValue.stringValue = value;
                 _logger?.LogDebug("field={Field}, datatype=CHAR, value={Value}", curField + 1, value);
@@ -1006,15 +1045,11 @@ public sealed class NzConnection : DbConnection
                 string value;
                 if (fldtype == NzTypeNVarChar || fldlen == cursize)
                 {
-                    value = NzConnectionHelpers.ClientEncoding.GetString(fieldDataP.Slice(2, cursize));
+                    value = GetStandardString(curField, fieldDataP.Slice(2, cursize), NzConnectionHelpers.ClientEncoding);
                 }
                 else
                 {
-                    //Span<char> chars = fldlen < 120 ? stackalloc char[fldlen] : new char[fldlen];
-                    Span<char> chars = new char[fldlen];
-                    NzConnectionHelpers.ClientEncoding.TryGetChars(fieldDataP.Slice(2, cursize), chars, out int charsRead);
-                    chars[charsRead..fldlen].Fill(' ');
-                    value = new string(chars[0..fldlen]);
+                    value = GetFixedLenString(curField, fieldDataP, fldlen, cursize);
                 }
                 rowValue.typeCode = TypeCodeEx.String;
                 rowValue.stringValue = value;
@@ -1025,7 +1060,7 @@ public sealed class NzConnection : DbConnection
                 fldtype == NzTypeVarBinary || fldtype == NzTypeJson || fldtype == NzTypeJsonb || fldtype == NzTypeJsonpath)
             {
                 int cursize = BitConverter.ToInt16(fieldDataP) - 2;
-                string value = NzConnectionHelpers.CharVarcharEncoding.GetString(fieldDataP.Slice(2, cursize));
+                string value = GetStandardString(curField, fieldDataP.Slice(2, cursize), NzConnectionHelpers.CharVarcharEncoding);
                 rowValue.typeCode = TypeCodeEx.String;
                 rowValue.stringValue = value;
                 _logger?.LogDebug("field={Field}, datatype={Datatype}, value={Value}", curField + 1, fldtype.ToString(), value);
@@ -1040,7 +1075,7 @@ public sealed class NzConnection : DbConnection
             }
             else if (fldtype == NzTypeIntvsAbsTimeFIX) //https://github.com/IBM/nzpy/issues/61 //TODO, SELECT CREATEDATE FROM SYSTEM.ADMIN._V_TABLE_STORAGE_STAT
             {
-                DateTime value = Core.TimestampRecvInt(fieldDataP);
+                DateTime value = DateTypes.TimestampRecvInt(fieldDataP);
                 rowValue.typeCode = TypeCodeEx.DateTime;
                 rowValue.dateTimeValue = value;
                 _logger?.LogDebug("field={Field}, datatype=NzTypeInt4, value={Value}", curField + 1, value);
@@ -1083,47 +1118,46 @@ public sealed class NzConnection : DbConnection
             }
             else if (fldtype == NzTypeDate)
             {
-                DateTime value = Core.ToDateTimeFrom4Bytes(fieldDataP);
+                DateTime value = DateTypes.ToDateTimeFrom4Bytes(fieldDataP);
                 rowValue.typeCode = TypeCodeEx.DateTime;
                 rowValue.dateTimeValue = value;
                 _logger?.LogDebug("field={Field}, datatype=DATE, value={Value}", curField + 1, value);
             }
             else if (fldtype == NzTypeTime)
             {
-                TimeSpan value = Core.TimeRecvFloatX2(fieldDataP);
+                TimeSpan value = DateTypes.TimeRecvFloatX2(fieldDataP);
                 rowValue.typeCode = TypeCodeEx.TimeSpan;
                 rowValue.timeSpanValue = value;
                 _logger?.LogDebug("field={Field}, datatype=TIME, value={Value}", curField + 1, value);
             }
             else if (fldtype == NzTypeInterval)
             {
-                string value = Core.TimeRecvFloatX1(fieldDataP);
+                string value = DateTypes.TimeRecvFloatX1(fieldDataP);
                 rowValue.typeCode = TypeCodeEx.String;
                 rowValue.stringValue = value;
                 _logger?.LogDebug("field={Field}, datatype=INTERVAL, value={Value}", curField + 1, value);
             }
-            else if (fldtype == NzTypeTimeTz)
+            else if (fldtype == NzTypeTimeTz) // https://www.ibm.com/docs/en/netezza?topic=tdt-time-time-zone-timetz
             {
-                Debug.Assert(false);//TODO!!!
-                int timetzTime = BitConverter.ToInt32(fieldDataP);
+                TimeSpan timeSpanVal = DateTypes.TimeRecvFloatX2(fieldDataP);
                 int timetzZone = BitConverter.ToInt32(fieldDataP.Slice(fldlen - 4));
-                string value = NzConnection.TimetzOutTimetzadt(timetzTime, timetzZone);
                 rowValue.typeCode = TypeCodeEx.String;
-                rowValue.stringValue = value;
-                _logger?.LogDebug("field={Field}, datatype=TIMETZ, value={Value}", curField + 1, value);
+                rowValue.stringValue = DateTypes.TimetzOutTimetzadt(timeSpanVal, timetzZone);
+                //rowValue.stringValue = value.ToString();
+                _logger?.LogDebug("field={Field}, datatype=TIMETZ, value={Value}", curField + 1, rowValue.stringValue);
             }
             else if (fldtype == NzTypeTimestamp)
             {
-                DateTime value = Core.ToDateTimeFrom8Bytes(fieldDataP);
+                DateTime value = DateTypes.ToDateTimeFrom8Bytes(fieldDataP);
                 rowValue.typeCode = TypeCodeEx.DateTime;
                 rowValue.dateTimeValue = value;
                 _logger?.LogDebug("field={Field}, datatype=TIMESTAMP, value={Value}", curField + 1, value);
             }
             else if (fldtype == NzTypeNumeric)
             {
-                int prec = NzConnection.CTableIFieldPrecision(tupdesc, curField);
-                int scale = NzConnection.CTableIFieldScale(tupdesc, curField);
-                int count = NzConnection.CTableIFieldNumericDigit32Count(tupdesc, curField);
+                int prec = CTableIFieldPrecision(curField);
+                int scale = CTableIFieldScale(curField);
+                int count = CTableIFieldNumericDigit32Count(curField);
                 decimal? value = Numeric.GetCsNumeric(fieldDataP, prec, scale, count);
                 rowValue.typeCode = TypeCodeEx.Decimal;
                 rowValue.decimalValue = value ?? 9999.99m;
@@ -1141,9 +1175,10 @@ public sealed class NzConnection : DbConnection
             fieldLf += 1;
         }
 
-        cursor.AddRow(_row);
+        nzCommand.AddRow(_row);
 
     }
+
 
     private void RegenerateBuffer(int length)
     {
@@ -1163,119 +1198,41 @@ public sealed class NzConnection : DbConnection
         return tupdesc.NullsAllowed != 0 && columnIsNull;
     }
 
-    private static int CTableIFieldPrecision(DbosTupleDesc tupdesc, int coldex)
+    private int CTableIFieldPrecision(int coldex)
     {
-        return ((tupdesc.FieldSize[coldex] >> 8) & 0x7F);
+        return ((_tupdesc.FieldSize[coldex] >> 8) & 0x7F);
     }
 
-    private static int CTableIFieldScale(DbosTupleDesc tupdesc, int coldex)
+    internal int CTableIFieldScale(int coldex)
     {
-        return (tupdesc.FieldSize[coldex] & 0x00FF);
+        return (_tupdesc.FieldSize[coldex] & 0x00FF);
     }
 
-    private static int CTableIFieldNumericDigit32Count(DbosTupleDesc tupdesc, int coldex)
+    private int CTableIFieldNumericDigit32Count(int coldex)
     {
         int sizeTNumericDigit = 4;
-        return tupdesc.FieldTrueSize[coldex] / sizeTNumericDigit;
+        return _tupdesc.FieldTrueSize[coldex] / sizeTNumericDigit;
     }
 
-    //todo
-    private static string TimetzOutTimetzadt(long timetzTime, int timetzZone)
-    {
-        var tm = new List<int>();
-
-        long time = timetzTime / 1000000;
-        long fusec = timetzTime % 1000000;
-
-        int hour = (int)(time / 3600);
-        time = time % 3600;
-        int min = (int)(time / 60);
-        int sec = (int)(time % 60);
-
-        tm.Add(hour);
-        tm.Add(min);
-        tm.Add(sec);
-
-        return NzConnection.EncodeTimeOnly(tm, fusec, timetzZone);
-    }
-    //todo
-    private static string EncodeTimeOnly(List<int> tm, double fusec, int timetzZone)
-    {
-        if (tm[0] < 0 || tm[0] > 24)
-        {
-            return "";
-        }
-
-        if (tm[1] < 0 || tm[1] > 59)
-        {
-            return "";
-        }
-
-        fusec /= 1000000;
-
-        string result = $"{tm[0]:02d}:{tm[1]:02d}";
-
-        // fractional seconds?
-        if (fusec != 0)
-        {
-            fusec += tm[2];
-            result += $":{fusec:09.6f}";
-        }
-        else if (tm[2] != 0)
-        {
-            result += $":{tm[2]:02d}";
-        }
-
-        if (timetzZone != 0)
-        {
-            int hour = -timetzZone / 3600;
-            int temp = timetzZone / 60;
-
-            if (temp < 0)
-            {
-                temp = -temp;
-            }
-
-            int min = temp % 60;
-
-            if (hour == 0 && timetzZone > 0)
-            {
-                result += $"-00:{min:02d}";
-            }
-            else
-            {
-                if (min != 0)
-                {
-                    result += $"+{hour:02d}:{min:02d}";
-                }
-                else
-                {
-                    result += $"+{hour:02d}";
-                }
-            }
-        }
-
-        return result;
-    }
     
-    private static int CTableIFieldType(DbosTupleDesc tupdesc, int curField)
+    private int CTableIFieldType(int curField)
     {
-        return tupdesc.FieldType[curField];
+        return _tupdesc.FieldType[curField];
     }
 
-    private static int CTableIFieldSize(DbosTupleDesc tupdesc, int curField)
+    private int CTableIFieldSize(int curField)
     {
-        return tupdesc.FieldSize[curField];
+        return _tupdesc.FieldSize[curField];
     }
 
-    private static Span<byte> CTableFieldAt(DbosTupleDesc tupdesc, byte[] data, int curField)
+    private Span<byte> CTableFieldAt(byte[] data, int curField)
     {
-        if (tupdesc.FieldFixedSize[curField] != 0)
+        if (_tupdesc.FieldFixedSize[curField] != 0)
         {
-            return CTableIFixedFieldPtr(data, tupdesc.FieldOffset[curField]);
+            return CTableIFixedFieldPtr(data, _tupdesc.FieldOffset[curField]);
         }
 
-        return NzConnection.CTableIVarFieldPtr(data, tupdesc.FixedFieldsSize, tupdesc.FieldOffset[curField]);
+        return NzConnection.CTableIVarFieldPtr(data, _tupdesc.FixedFieldsSize, _tupdesc.FieldOffset[curField]);
     }
 
     private static Span<byte> CTableIVarFieldPtr(byte[] data, int fixedOffset, int varDex)
@@ -1303,11 +1260,11 @@ public sealed class NzConnection : DbConnection
     }
 
     //only for system tabeles  + selects without from ? -> "SELECT * FROM _V_TABLE"  or "SELECT 123"
-    private void HandleDataRow(byte[] data, NzCommand cursor)
+    private void HandleDataRow(byte[] data, NzCommand nzCommand)
     {
         // bitmaplen denotes the number of bytes bitmap sent by backend.
         // For e.g.: for select statement with 9 columns, we would receive 2 bytes bitmap.
-        int numberOfCol = cursor.NewPreparedStatement!.FieldCount;
+        int numberOfCol = nzCommand.NewPreparedStatement!.FieldCount;
         int bitmapLen = numberOfCol / 8;
         if ((numberOfCol % 8) > 0)
         {
@@ -1332,7 +1289,8 @@ public sealed class NzConnection : DbConnection
             }
             else
             {
-                var typeOid = cursor.NewPreparedStatement.Description![columnNumber].TypeOID;
+                var typeOid = nzCommand.NewPreparedStatement.Description![columnNumber].TypeOID;
+                Sylvan? sp = UseStringPool ? nzCommand.GetColumnStringPool(columnNumber) : null;
                 int vlen = IUnpack(data, dataIdx);
                 dataIdx += 4;
 
@@ -1348,7 +1306,7 @@ public sealed class NzConnection : DbConnection
                         break;
                     case 19: // name type
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 20: // int8
                         rowValue.typeCode = TypeCodeEx.Int64;
@@ -1364,7 +1322,7 @@ public sealed class NzConnection : DbConnection
                         break;
                     case 25: // TEXT type
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 26: // oid
                         rowValue.typeCode = TypeCodeEx.Int32;
@@ -1384,39 +1342,39 @@ public sealed class NzConnection : DbConnection
                         break;
                     case 702: // SELECT CREATEDATE FROM _V_TABLE ORDER BY CREATEDATE DESC .. 
                         rowValue.typeCode = TypeCodeEx.DateTime; //with time
-                        rowValue.dateTimeValue = NzConnectionHelpers.TimestamptzRecvFloatTyped(data, dataIdx, vlen - 4);
+                        rowValue.dateTimeValue = DateTypes.TimestamptzRecvFloatTyped(data, dataIdx, vlen - 4);
                         break;
                     case 705: // unknown
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 829: // MACADDR type
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 1042: // CHAR type
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 1043: // VARCHAR type
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 1082: // date
                         rowValue.typeCode = TypeCodeEx.DateTime;//without time
-                        rowValue.dateTimeValue = NzConnectionHelpers.DateInTyped(data, dataIdx, vlen - 4);
+                        rowValue.dateTimeValue = DateTypes.DateInTyped(data, dataIdx, vlen - 4);
                         break;
                     case 1083: // time
                         rowValue.typeCode = TypeCodeEx.TimeSpan;
-                        rowValue.timeSpanValue = NzConnectionHelpers.TimeInTyped(data, dataIdx, vlen - 4);
+                        rowValue.timeSpanValue = DateTypes.TimeInTyped(data, dataIdx, vlen - 4);
                         break;
                     case 1114: // timestamp w/ tz
                         rowValue.typeCode = TypeCodeEx.DateTime;
-                        rowValue.dateTimeValue = NzConnectionHelpers.TimestampRecvFloatTyped(data, dataIdx, vlen - 4);
+                        rowValue.dateTimeValue = DateTypes.TimestampRecvFloatTyped(data, dataIdx, vlen - 4);
                         break;
                     case 1184:
                         rowValue.typeCode = TypeCodeEx.DateTime;
-                        rowValue.dateTimeValue = NzConnectionHelpers.TimestamptzRecvFloatTyped(data, dataIdx, vlen - 4);
+                        rowValue.dateTimeValue = DateTypes.TimestamptzRecvFloatTyped(data, dataIdx, vlen - 4);
                         break;
                     case 1186:
                         rowValue.typeCode = TypeCodeEx.String;
@@ -1428,7 +1386,7 @@ public sealed class NzConnection : DbConnection
                         break;
                     case 2275: // cstring
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                     case 2500: // SELECT 15::BYTEINT
                         rowValue.typeCode = TypeCodeEx.Int16;
@@ -1440,7 +1398,7 @@ public sealed class NzConnection : DbConnection
                         break;
                     default:
                         rowValue.typeCode = TypeCodeEx.String;
-                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
+                        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4, sp);
                         break;
                 }
                 //TODO { 22, (FC_TEXT, VectorIn) },       // int2vector
@@ -1458,112 +1416,26 @@ public sealed class NzConnection : DbConnection
                 //TODO{ 1231, (FC_TEXT, ArrayIn) },      // NUMERIC[]
                 //TODO{ 1263, (FC_BINARY, ArrayRecv) },  // cstring[]
                 //TODO{{ 3802, (FC_TEXT, JsonIn) }        // jsonb
-
-                //if (func is not null)
-                //{
-                //    if (columnType == typeof(Int32) && func == NzConnectionHelpers.Int4RecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Int32;
-                //        rowValue.int32Value = NzConnectionHelpers.Int4RecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(Int64) && func == NzConnectionHelpers.Int8RecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Int64;
-                //        rowValue.int64Value = NzConnectionHelpers.Int8RecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(Int16) && func == NzConnectionHelpers.Int2RecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Int16;
-                //        rowValue.int16Value = NzConnectionHelpers.Int2RecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(Int16) && func == NzConnectionHelpers.ByteRecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Int16;
-                //        rowValue.int16Value = NzConnectionHelpers.ByteRecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(DateTime) && func == NzConnectionHelpers.TimestamptzRecvFloatBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.DateTime;//with time
-                //        rowValue.dateTimeValue = NzConnectionHelpers.TimestamptzRecvFloatTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(DateTime) && func == NzConnectionHelpers.DateInBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.DateTime;//without time
-                //        rowValue.dateTimeValue = NzConnectionHelpers.DateInTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(bool) && func == NzConnectionHelpers.BoolRecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Boolean;
-                //        rowValue.boolValue = NzConnectionHelpers.BoolRecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(float) && func == NzConnectionHelpers.Float4RecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Single;
-                //        rowValue.singleValue = NzConnectionHelpers.Float4RecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(double) && func == NzConnectionHelpers.Float8RecvBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Double;
-                //        rowValue.doubleValue = NzConnectionHelpers.Float8RecvTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(decimal) && func == NzConnectionHelpers.NumericInBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.Decimal;
-                //        rowValue.decimalValue = NzConnectionHelpers.NumericInTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(TimeSpan) && func == NzConnectionHelpers.TimeInBoxed)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.TimeSpan;
-                //        rowValue.timeSpanValue = NzConnectionHelpers.TimeInTyped(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(string) && func == NzConnectionHelpers.TextRecv)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.String;
-                //        rowValue.stringValue = NzConnectionHelpers.TextRecv(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(string) && func == NzConnectionHelpers.IntervalRecvInteger)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.String;
-                //        rowValue.stringValue = NzConnectionHelpers.IntervalRecvInteger(data, dataIdx, vlen - 4);
-                //    }
-                //    else if (columnType == typeof(string) && func == NzConnectionHelpers.ByteaRecv)
-                //    {
-                //        rowValue.typeCode = TypeCodeEx.String;
-                //        rowValue.stringValue = NzConnectionHelpers.ByteaRecv(data, dataIdx, vlen - 4);
-                //    }
-                //    else //fallback, todo more cases
-                //    {
-                //        object value = func(data, dataIdx, vlen - 4);
-                //        RowValue.SetValue(value, ref rowValue);
-                //    }
-                //}
-                //else
-                //{
-                //    rowValue.typeCode = TypeCodeEx.Empty;
-                //    Debug.Assert(false, "Invalid input function");
-                //}
-
                 dataIdx += vlen - 4;
             }
         }
-        
-        cursor.AddRow(_row);
+        nzCommand.AddRow(_row);
     }
 
-    private void HandleCommandComplete(byte[] data, NzCommand cursor)
+    private void HandleCommandComplete(byte[] data, int length, NzCommand nzCommand)
     {
-        var values = Encoding.UTF8.GetString(data, 0, data.Length - 1).Split(' ');
+        var values = Encoding.UTF8.GetString(data, 0, length - 1).Split(' ');
         var command = values[0];
         if (_commandsWithCount.Contains(command))
         {
             int rowCount = int.Parse(values[^1]);
-            if (cursor._recordsAffected == -1)
+            if (nzCommand._recordsAffected == -1)
             {
-                cursor._recordsAffected = rowCount;
+                nzCommand._recordsAffected = rowCount;
             }
             else
             {
-                cursor._recordsAffected += rowCount;
+                nzCommand._recordsAffected += rowCount;
             }
         }
 
@@ -1583,12 +1455,12 @@ public sealed class NzConnection : DbConnection
         //    }
         //}
     }
-    private static void HandleRowDescription(byte[] data, NzCommand cursor)
+    private static void HandleRowDescription(byte[] data, NzCommand nzCommand)
     {
         int count = HUnpack(data);
         int idx = 2;
 
-         cursor.NewPreparedStatement!.Description = new RowDescriptionMessage(count);
+         nzCommand.NewPreparedStatement!.Description = new RowDescriptionMessage(count);
 
         for (int i = 0; i < count; i++)
         {
@@ -1609,8 +1481,12 @@ public sealed class NzConnection : DbConnection
                 DataFormat = format,
                 //CalculationFunc = receiver
             };
-            cursor.NewPreparedStatement.Description[i] = fieldNew;
+            if (fieldNew.Type == typeof(string))
+            {
+                fieldNew.StringPool = new Sylvan();
+            }
 
+            nzCommand.NewPreparedStatement.Description[i] = fieldNew;
             idx += 11;
         }
     }
@@ -1691,24 +1567,24 @@ public sealed class NzConnection : DbConnection
 
         _socket?.Dispose();
         _socket = null!;
-        _cursor = null!;
+        _nzCommand = null!;
         _state = ConnectionState.Closed;
         ArrayPool<byte>.Shared.Return(_tmp_buffer);
     }
 
-    private NzCommand _cursor = null!;
+    private NzCommand _nzCommand = null!;
 
     protected override DbCommand CreateDbCommand()
     {
-        _cursor = new NzCommand(this);
-        return _cursor;
+        _nzCommand = new NzCommand(this);
+        return _nzCommand;
     }
 
     public override void Open()
     {
         Open();
     }
-    public void Open(ClientTypeId clientVersionId = ClientTypeId.SqlPython)
+    public void Open(ClientTypeId clientVersionId = ClientTypeId.SqlDotnet)
     {
         _state = ConnectionState.Connecting;
         _stream = Initialize(_host, _port);
@@ -1728,7 +1604,7 @@ public sealed class NzConnection : DbConnection
             throw new NetezzaException("Error in handshake");
         }
 
-        _cursor = (NzCommand)CreateCommand();
+        _nzCommand = (NzCommand)CreateCommand();
         if (!ConnSendQuery())
         {
             _logger?.LogWarning("Error sending initial setup queries");

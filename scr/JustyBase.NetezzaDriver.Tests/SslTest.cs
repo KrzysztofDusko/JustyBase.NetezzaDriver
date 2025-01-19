@@ -1,4 +1,4 @@
-﻿using JustyBase.NetezzaDriver;
+﻿using JustyBase.NetezzaDriver.Logging;
 using System.Security.Authentication;
 using Xunit.Abstractions;
 
@@ -22,7 +22,7 @@ public class SslTest
         Assert.Throws<AuthenticationException>(() =>
         {
             connection.Open();
-            using var cursor = connection.CreateCommand();
+            using var command = connection.CreateCommand();
         });
     }
 
@@ -32,9 +32,9 @@ public class SslTest
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
             securityLevel: 3, sslCerFilePath: @"E:\server-cert.pem", logger: new SimpleNzLogger());
         connection.Open();
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "SELECT 15 FROM JUST_DATA..DIMDATE";
-        using var rdr = cursor.ExecuteReader();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 15 FROM JUST_DATA..DIMDATE";
+        using var rdr = command.ExecuteReader();
         rdr.Read();
         var res = rdr.GetValue(0);
         Assert.Equal(15, (int)res);

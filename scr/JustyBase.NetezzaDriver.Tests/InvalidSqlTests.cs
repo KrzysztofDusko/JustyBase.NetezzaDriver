@@ -10,9 +10,9 @@ public class InvalidSqlTests
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "SELECT 1,,2;SELECT 1,2";
-        Assert.Throws<NetezzaException>(() => cursor.ExecuteReader());
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1,,2;SELECT 1,2";
+        Assert.Throws<NetezzaException>(() => command.ExecuteReader());
     }
 
     [Fact]
@@ -21,9 +21,9 @@ public class InvalidSqlTests
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "SELECT 1,,2;SELECT 1,2";
-        Assert.Throws<NetezzaException>(() => cursor.ExecuteNonQuery());
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1,,2;SELECT 1,2";
+        Assert.Throws<NetezzaException>(() => command.ExecuteNonQuery());
     }
 
     [Fact]
@@ -32,9 +32,9 @@ public class InvalidSqlTests
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "SELECT 1,,2;SELECT 1,2";
-        Assert.Throws<NetezzaException>(() => cursor.ExecuteScalar());
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1,,2;SELECT 1,2";
+        Assert.Throws<NetezzaException>(() => command.ExecuteScalar());
     }
 }
 

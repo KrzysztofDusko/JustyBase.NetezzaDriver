@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 
@@ -6,17 +7,18 @@ namespace JustyBase.NetezzaDriver;
 
 public sealed class NzDataReader : DbDataReader
 {
-    private readonly NzCommand _cursor;
+    private readonly NzCommand _nzCommand;
     private readonly NzConnection _nzConnection;
-    public NzDataReader(NzCommand cursor)
+    public NzDataReader(NzCommand nzCommand)
     {
-        _cursor = cursor;
-        _nzConnection = (NzConnection)cursor.Connection!;
+        _nzCommand = nzCommand;
+        _nzConnection = (NzConnection)nzCommand.Connection!;
 
-        while (_opened = _nzConnection.DoNextStep(_cursor))
+        while (_opened = _nzConnection.DoNextStep(_nzCommand))
         {
             if (_nzConnection.NewRowDescriptionReceived())
             {
+                CheckIfRowsAreAvaiable();
                 break;
             }
         }
@@ -27,32 +29,34 @@ public sealed class NzDataReader : DbDataReader
         if (!IsClosed)
         {
             base.Close();
-            while (_opened = _nzConnection.DoNextStep(_cursor)) ;//draing the rest of the data
+            while (_opened = _nzConnection.DoNextStep(_nzCommand)) ;//draing the rest of the data
         }
     }
     public override object this[int ordinal] => GetValue(ordinal);
 
-    public override object this[string name] => throw new NotImplementedException();
+    public override object this[string name] => _nzCommand?.NewPreparedStatement?.Description?.FieldIndex(name) is int idx ? GetValue(idx) : throw new IndexOutOfRangeException();
 
     public override int Depth => throw new NotImplementedException();
 
-    public override int FieldCount => _cursor.FieldCount;
+    public override int FieldCount => _nzCommand.FieldCount;
 
-    public override bool HasRows => throw new NotImplementedException();
+
+    private bool _hasRows = false;
+    public override bool HasRows => _hasRows;
 
     public override bool IsClosed => !_opened;
 
-    public override int RecordsAffected => _cursor._recordsAffected;
+    public override int RecordsAffected => _nzCommand._recordsAffected;
 
     public override bool GetBoolean(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.boolValue;
     }
 
     public override byte GetByte(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.byteValue;
     }
 
@@ -63,7 +67,7 @@ public sealed class NzDataReader : DbDataReader
 
     public override char GetChar(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.charValue;
     }
 
@@ -79,19 +83,19 @@ public sealed class NzDataReader : DbDataReader
 
     public override DateTime GetDateTime(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.dateTimeValue;
     }
 
     public override decimal GetDecimal(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.decimalValue;
     }
 
     public override double GetDouble(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.doubleValue;
     }
 
@@ -101,11 +105,11 @@ public sealed class NzDataReader : DbDataReader
     }
 
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
-    public override Type GetFieldType(int ordinal) => _cursor.GetFieldType(ordinal);
+    public override Type GetFieldType(int ordinal) => _nzCommand.GetFieldType(ordinal);
 
     public override float GetFloat(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.singleValue;
     }
 
@@ -117,25 +121,25 @@ public sealed class NzDataReader : DbDataReader
     public override short GetInt16(int ordinal)
     {
         //return (short) GetValue(ordinal);
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.int16Value;
     }
 
     public override int GetInt32(int ordinal)
     {
         //return (int)GetValue(ordinal);
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.int32Value;
     }
 
     public override long GetInt64(int ordinal)
     {
         //return (long)GetValue(ordinal);
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.int64Value;
     }
 
-    public override string GetName(int ordinal) => _cursor.GetName(ordinal);
+    public override string GetName(int ordinal) => _nzCommand.GetName(ordinal);
 
 
     public override int GetOrdinal(string name)
@@ -146,13 +150,13 @@ public sealed class NzDataReader : DbDataReader
     public override string GetString(int ordinal)
     {
         //return (string) GetValue(ordinal);
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.stringValue;
     }
 
     public override object GetValue(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.GetValue();
     }
 
@@ -168,7 +172,7 @@ public sealed class NzDataReader : DbDataReader
 
     public override bool IsDBNull(int ordinal)
     {
-        ref RowValue rw = ref _cursor.GetValue(ordinal);
+        ref RowValue rw = ref _nzCommand.GetValue(ordinal);
         return rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty;
     }
 
@@ -186,7 +190,7 @@ public sealed class NzDataReader : DbDataReader
             return false;
         }
 
-        while (_opened = _nzConnection.DoNextStep(_cursor))
+        while (_opened = _nzConnection.DoNextStep(_nzCommand))
         {
             if (_nzConnection.NewRowReceived())
             {
@@ -194,10 +198,46 @@ public sealed class NzDataReader : DbDataReader
             }
             if (_nzConnection.NewRowDescriptionReceived())
             {
+                CheckIfRowsAreAvaiable();
                 return false;
             }
         }
-
         return false;//final stop!
+    }
+
+    /// <summary>
+    /// Check if there are more rows to read
+    /// </summary>
+    private void CheckIfRowsAreAvaiable()
+    {
+        _nzConnection.ReadNextResponseByte();
+        if (_nzConnection.IsCommandComplete())
+        {
+            _hasRows = false;
+        }
+        else
+        {
+            _hasRows = true;
+        }
+    }
+
+    //todo: implement more columns
+    public override DataTable? GetSchemaTable()
+    {
+        DataTable dt = new DataTable();
+        dt.Columns.Add("NumericScale", typeof(int));
+        for (int ordinal = 0; ordinal < FieldCount; ordinal++)
+        {
+            if (GetFieldType(ordinal) == typeof(decimal))
+            {
+                dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
+            }
+            else
+            {
+                dt.Rows.Add([DBNull.Value]);
+            }
+        }
+
+        return dt;
     }
 }

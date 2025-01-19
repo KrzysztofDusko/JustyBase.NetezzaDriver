@@ -1,18 +1,25 @@
-﻿using JustyBase.NetezzaDriver;
+﻿using JustyBase.NetezzaDriver.StringPool;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
 internal static class NzConnectionHelpers
 {
-    public static readonly Encoding ClientEncoding = Encoding.UTF8;
-    public static readonly Encoding CharVarcharEncoding = Encoding.Latin1;
-    public const string NZPY_CLIENT_VERSION = "Release 11.1.0.0";
+    internal static readonly Encoding ClientEncoding = Encoding.UTF8;
+    internal static readonly Encoding CharVarcharEncoding = Encoding.Latin1;
+    internal const string NZPY_CLIENT_VERSION = "Release 11.1.0.0";
 
     //add pooling ? 
-    public static string TextRecv(byte[] data, int offset, int length)
+    internal static string TextRecv(byte[] data, int offset, int length, Sylvan? sp)
     {
-        return ClientEncoding.GetString(data, offset, length);
+        if (sp is not null)
+        {
+            return sp.GetString(data.AsSpan(offset, length), ClientEncoding);
+        }
+        else
+        {
+            return ClientEncoding.GetString(data, offset, length);
+        }
     }
 
     /// <summary>
@@ -22,7 +29,7 @@ internal static class NzConnectionHelpers
     /// <param name="offset"></param>
     /// <param name="length"></param>
     /// <returns></returns>
-    public static string ByteaRecv(byte[] data, int offset, int length)
+    internal static string ByteaRecv(byte[] data, int offset, int length)
     {
         //byte[] result = new byte[length];
         //Array.Copy(data, offset, result, 0, length);
@@ -30,126 +37,48 @@ internal static class NzConnectionHelpers
         return Encoding.ASCII.GetString(data, offset, length);
     }
 
-    public static bool BoolRecvTyped(byte[] data, int offset, int length)
+    internal static bool BoolRecvTyped(byte[] data, int offset, int length)
     {
         return data[offset] == 116; // ASCII for 't'= (byte)'t', (byte)'f' = 102
     }
 
     //change to sbyte ?, OID 2500
-    public static Int16 ByteRecvTyped(byte[] data, int offset, int length)
+    internal static Int16 ByteRecvTyped(byte[] data, int offset, int length)
     {
         //Int16 to be in pair with ODBC
         return (Int16)SByte.Parse(data.AsSpan().Slice(offset, length));
     }
 
-    public static long Int8RecvTyped(byte[] data, int offset, int length)
+    internal static long Int8RecvTyped(byte[] data, int offset, int length)
     {
         return long.Parse(data.AsSpan().Slice(offset, length));
     }
 
-    public static Int16 Int2RecvTyped(byte[] data, int offset, int length)
+    internal static Int16 Int2RecvTyped(byte[] data, int offset, int length)
     {
         return Int16.Parse(data.AsSpan().Slice(offset, length));
     }
 
-    public static int Int4RecvTyped(byte[] data, int offset, int length)
+    internal static int Int4RecvTyped(byte[] data, int offset, int length)
     {
         return Int32.Parse(data.AsSpan().Slice(offset, length));
     }
 
-    public static float Float4RecvTyped(byte[] data, int offset, int length)
+    internal static float Float4RecvTyped(byte[] data, int offset, int length)
     {
         return float.Parse(data.AsSpan().Slice(offset, length), CultureInfo.InvariantCulture);
     }
 
-    public static double Float8RecvTyped(byte[] data, int offset, int length)
+    internal static double Float8RecvTyped(byte[] data, int offset, int length)
     {
         return double.Parse(data.AsSpan().Slice(offset, length), CultureInfo.InvariantCulture);
-    }
-
-    /// <summary>
-    /// occurs for SELECT '2024-12-12'::DATE
-    /// </summary>
-    /// <param name="data"></param>
-    /// <param name="offset"></param>
-    /// <param name="length"></param>
-    /// <returns></returns>
-    public static DateTime DateInTyped(byte[] data, int offset, int length)
-    {
-        //string dateStr = _clientEncoding.GetString(data, offset, length);
-        ReadOnlySpan<byte> spB = new ReadOnlySpan<byte>(data, offset, length);
-        try
-        {
-            return new DateTime(
-                int.Parse(spB[0..4]),  // year
-                int.Parse(spB[5..7]),  // month
-                int.Parse(spB[8..10])); // day
-        }
-        catch (Exception)
-        {
-            return DateTime.MinValue;
-        }
-    }
-
-    /// <summary>
-    /// to do eliminate allocation
-    /// </summary>
-    /// <param name="data"></param>
-    /// <param name="offset"></param>
-    /// <param name="length"></param>
-    /// <returns></returns>
-    public static DateTime TimestamptzRecvFloatTyped(byte[] data, int offset, int length)
-    {
-        Span<char> chars = length < 128 ? stackalloc char[length] : new char[length];
-        int charCnt = Encoding.ASCII.GetChars(data.AsSpan().Slice(offset, length), chars);
-        chars = chars[..charCnt];
-        //var data1 = _clientEncoding.GetString(data, offset, length);
-
-        if (DateTime.TryParse(chars, out var res))
-        {
-            return res;
-        }
-        else
-        {
-            //return new string(chars);
-            return DateTime.MinValue;
-        }
-    }
-
-    public static TimeSpan TimeInTyped(byte[] data, int offset, int length)
-    {
-        int hour = int.Parse(data.AsSpan().Slice(offset, 2));
-        int minute = int.Parse(data.AsSpan().Slice(offset + 3, 2));
-        decimal seconds = decimal.Parse(data.AsSpan().Slice(offset + 6, length - 6), CultureInfo.InvariantCulture);
-
-        return new TimeSpan(
-            0,
-            hour,
-            minute,
-            (int)seconds,
-            (int)((seconds - Math.Floor(seconds)) * 1000000));
-    }
-
-    private const double EPOCH_SECONDS = 946684800.0; // 2000-01-01 UTC
-
-
-    //private static object TimestampRecvFloat(byte[] data, int offset, int length)
-    //{
-    //    double seconds = BitConverter.ToDouble(data, offset);
-    //    return DateTime.UnixEpoch.AddSeconds(EPOCH_SECONDS + seconds);
-    //}
-
-    public static DateTime TimestampRecvFloatTyped(byte[] data, int offset, int length)
-    {
-        double seconds = BitConverter.ToDouble(data, offset);
-        return DateTime.UnixEpoch.AddSeconds(EPOCH_SECONDS + seconds);
     }
 
     /// <summary>
     /// Converts PostgreSQL numeric format to C# decimal
     /// occurs for SELECT 3.14::NUMERIC(10,4)
     /// </summary>
-    public static decimal NumericInTyped(byte[] data, int offset, int length)
+    internal static decimal NumericInTyped(byte[] data, int offset, int length)
     {
         var sp = new ReadOnlySpan<byte>(data, offset, length);
         return decimal.Parse(sp, CultureInfo.InvariantCulture);
@@ -180,7 +109,7 @@ internal static class NzConnectionHelpers
     /// Receives interval as integer from PostgreSQL data stream
     /// SELECT '5 hours 41 minutes  15 sec'::interval
     /// </summary>
-    public static string IntervalRecvInteger(byte[] data, int offset, int length)
+    internal static string IntervalRecvInteger(byte[] data, int offset, int length)
     {
         return Encoding.ASCII.GetString(data, offset, length);
     }
@@ -189,7 +118,7 @@ internal static class NzConnectionHelpers
     /// Receives UUID from data stream
     /// TODO 
     /// </summary>
-    public static Guid UuidRecvTyped(byte[] data, int offset, int length)
+    internal static Guid UuidRecvTyped(byte[] data, int offset, int length)
     {
         Debug.Assert(false);
         if (length != 16)

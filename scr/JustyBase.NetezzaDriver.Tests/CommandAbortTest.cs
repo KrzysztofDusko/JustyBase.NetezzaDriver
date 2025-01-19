@@ -21,9 +21,9 @@ public class CommandAbortTest
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
 
-        using var cursor = connection.CreateCommand();
-        cursor.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
-        cursor.ExecuteNonQuery();
+        using var command = connection.CreateCommand();
+        command.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
+        command.ExecuteNonQuery();
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         for (int i = 0; i < 3; i++)
@@ -34,8 +34,8 @@ public class CommandAbortTest
                 {
                     stopwatch.Restart();
                     _output.WriteLine($"STARTED PID = {connection.Pid}");
-                    cursor.CommandText = _heavySql;
-                    cursor.ExecuteNonQuery();
+                    command.CommandText = _heavySql;
+                    command.ExecuteNonQuery();
                 }
                 catch (Exception ex)
                 {
@@ -44,8 +44,8 @@ public class CommandAbortTest
                     _output.WriteLine(ex.Message);
                     _output.WriteLine("AFTER : " + stopwatch.Elapsed.ToString());
                     await Task.Delay(500);
-                    cursor.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
-                    using var rdr = cursor.ExecuteReader();
+                    command.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
+                    using var rdr = command.ExecuteReader();
                     rdr.Read();
                     Assert.Equal(0, rdr.GetInt64(0));
                     //Console.WriteLine("CHECK QUERIES ON DATABASE SIDE TO COFIRM !! (3 s)");
@@ -62,8 +62,8 @@ public class CommandAbortTest
 
         _output.WriteLine($"END {stopwatch.Elapsed}");
         //await Task.Delay(200);
-        cursor.CommandText = "SELECT * FROM ABC";
-        using var rdr = cursor.ExecuteReader();
+        command.CommandText = "SELECT * FROM ABC";
+        using var rdr = command.ExecuteReader();
         rdr.Read();//do not throws.
     }
 

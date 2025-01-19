@@ -1,7 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-namespace JustyBase.NetezzaDriver;
+namespace JustyBase.NetezzaDriver.Utility;
 //https://github.com/danbarua/Npgsql/blob/master/Npgsql/PGUtil.cs
 
 
@@ -15,7 +15,7 @@ internal static class PGUtil
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <returns>The 32-bit integer read from the stream.</returns>
-    public static int ReadInt32(Stream stream)
+    internal static int ReadInt32(Stream stream)
     {
         Span<byte> buffer = stackalloc byte[4];
         stream.ReadExactly(buffer);
@@ -28,7 +28,7 @@ internal static class PGUtil
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <returns>The 16-bit integer read from the stream.</returns>
-    public static short ReadInt16(Stream stream)
+    internal static short ReadInt16(Stream stream)
     {
         Span<byte> buffer = stackalloc byte[2];
         stream.ReadExactly(buffer);
@@ -41,7 +41,7 @@ internal static class PGUtil
     /// </summary>
     /// <param name="stream">The stream to write to.</param>
     /// <param name="value">The 16-bit integer to write.</param>
-    public static void WriteInt16(Stream stream, short value)
+    internal static void WriteInt16(Stream stream, short value)
     {
         value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
         Span<byte> bytes = stackalloc byte[sizeof(short)];
@@ -54,7 +54,7 @@ internal static class PGUtil
     /// </summary>
     /// <param name="stream">The stream to write to.</param>
     /// <param name="value">The 32-bit integer to write.</param>
-    public static void WriteInt32(Stream stream, int value)
+    internal static void WriteInt32(Stream stream, int value)
     {
         value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
         Span<byte> bytes = stackalloc byte[sizeof(int)];
@@ -67,7 +67,7 @@ internal static class PGUtil
     /// </summary>
     /// <param name="stream">The stream to skip bytes in.</param>
     /// <param name="num">The number of bytes to skip. Default is 4.</param>
-    public static void Skip4Bytes(Stream stream, int num = 4)
+    internal static void Skip4Bytes(Stream stream, int num = 4)
     {
         Span<byte> buffer = stackalloc byte[num];
         //PGUtil.CheckedStreamRead(stream, buffer, 0, 4);

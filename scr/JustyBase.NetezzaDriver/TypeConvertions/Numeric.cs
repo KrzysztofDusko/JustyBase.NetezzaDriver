@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace JustyBase.NetezzaDriver;
+namespace JustyBase.NetezzaDriver.TypeConvertions;
 
 /// <summary>
 /// Provides methods for handling numeric data.
@@ -20,7 +20,7 @@ internal sealed class Numeric
     // the power of 10 to divide the Decimal value by. The scale byte must
     // contain a value between 0 and 28 inclusive.
 
-    private const int  SignMask = unchecked((int)0x80000000);
+    private const int SignMask = unchecked((int)0x80000000);
     private const uint SignMaskUint = 0x80000000;
 
     /// <summary>
@@ -30,7 +30,7 @@ internal sealed class Numeric
     /// <returns>True if the flags represent a valid decimal; otherwise, false.</returns>
     private static bool IsValidDecimal(int f)
     {
-        return (f & ~(SignMask | ScaleMask)) == 0 && (f & ScaleMask) <= (28 << 16);
+        return (f & ~(SignMask | ScaleMask)) == 0 && (f & ScaleMask) <= 28 << 16;
     }
 
 
@@ -42,7 +42,7 @@ internal sealed class Numeric
     private static int Div10_128(Span<long> numerator)
     {
         int remainder = 0;
-        for (int index = 0; index < Numeric.MAX_NUMERIC_DIGIT_COUNT; ++index)
+        for (int index = 0; index < MAX_NUMERIC_DIGIT_COUNT; ++index)
         {
             long work = numerator[index] + ((long)remainder << 32);
             if (work != 0L)
@@ -78,9 +78,9 @@ internal sealed class Numeric
     private static bool Negate128(Span<long> data)
     {
         // First complement the value (1's complement)
-        for (int i = 0; i < Numeric.MAX_NUMERIC_DIGIT_COUNT; ++i)
+        for (int i = 0; i < MAX_NUMERIC_DIGIT_COUNT; ++i)
         {
-            data[i] = (long)~(int)data[i] & (long)uint.MaxValue;
+            data[i] = ~(int)data[i] & uint.MaxValue;
         }
 
         // Then increment it to form 2's complement (negative)
@@ -96,7 +96,7 @@ internal sealed class Numeric
     /// <returns>True if the increment resulted in a negative number; otherwise, false.</returns>
     private static bool Inc128(Span<long> arg)
     {
-        int i = Numeric.MAX_NUMERIC_DIGIT_COUNT;
+        int i = MAX_NUMERIC_DIGIT_COUNT;
         bool carry = true;
         bool bInputNegative = IsNumericDataNegative(arg);
 
@@ -105,7 +105,7 @@ internal sealed class Numeric
             i -= 1;
             long work = arg[i] + 1;
             carry = (work & HI32_MASK_LONG) != 0;
-            arg[i] = work & (long)uint.MaxValue;
+            arg[i] = work & uint.MaxValue;
         }
         return !bInputNegative && IsNumericDataNegative(arg);
     }
@@ -127,7 +127,7 @@ internal sealed class Numeric
         Span<long> dataP = stackalloc long[4];
         for (int index = 0; index < numParts; ++index)
         {
-            dataP[index] = (long)BitConverter.ToUInt32(data[(index * 4)..]);
+            dataP[index] = BitConverter.ToUInt32(data[(index * 4)..]);
         }
 
         Span<long> varPdata = stackalloc long[4];
@@ -151,11 +151,11 @@ internal sealed class Numeric
         bool isMinus = IsNumericDataNegative(varPdata);
         //if negative -> negate, Negate128 mutates varPdata
         if (isMinus && Negate128(varPdata))
-            return null; 
+            return null;
 
         if (IsValidDecimal((int)varPdata[0]))
         {
-            var dc1 = new Decimal((int)varPdata[3], (int)varPdata[2], (int)varPdata[1], isMinus, (byte)scale);
+            var dc1 = new decimal((int)varPdata[3], (int)varPdata[2], (int)varPdata[1], isMinus, (byte)scale);
             return dc1;
         }
         else

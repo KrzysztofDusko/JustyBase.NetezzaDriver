@@ -1,4 +1,7 @@
-﻿using System.Net.Security;
+﻿using JustyBase.NetezzaDriver.AbortQuery;
+using JustyBase.NetezzaDriver.Logging;
+using JustyBase.NetezzaDriver.Utility;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
@@ -313,10 +316,9 @@ internal sealed class Handshake
 
     private bool ConnSendDatabase(string database)
     {
-        byte[]? db = null;
         if (database != null)
         {
-            db = Encoding.UTF8.GetBytes(database);
+            byte[]? db = Encoding.UTF8.GetBytes(database);
             _logger?.LogInformation("Database name: {Database}", Encoding.UTF8.GetString(db));
             PGUtil.WriteInt32(_stream, (int)(2 + db.Length + 1 + 4));
             PGUtil.WriteInt16(_stream, (short)HSV2_DB);//2
@@ -725,7 +727,8 @@ internal sealed class Handshake
             {
                 PGUtil.Skip4Bytes(_stream);
                 // do not use just ignore
-                int length = PGUtil.ReadInt32(_stream);
+                //int length = PGUtil.ReadInt32(_stream);
+                PGUtil.Skip4Bytes(_stream);
             }
 
             if (response == (byte)BackendMessageCode.AuthenticationRequest)

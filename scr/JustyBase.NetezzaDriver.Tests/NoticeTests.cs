@@ -9,11 +9,11 @@ public class NoticeTests
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", 5480);
         connection.Open();
-        using var cursor = connection.CreateCommand();
+        using var command = connection.CreateCommand();
         List<string> notices = new List<string>();
         connection.NoticeReceived += o => notices.Add(o);
-        cursor.CommandText = "CALL CUSTOMER_DOTNET();";
-        cursor.ExecuteNonQuery();
+        command.CommandText = "CALL CUSTOMER_DOTNET();";
+        command.ExecuteNonQuery();
         var expected = new List<string>() { "The customer name is alpha\n", "The customer location is beta\n" };
         Assert.Equal(expected, notices);
     }

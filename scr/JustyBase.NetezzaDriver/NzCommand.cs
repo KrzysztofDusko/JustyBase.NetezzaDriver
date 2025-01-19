@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using JustyBase.NetezzaDriver.StringPool;
+using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 
@@ -7,6 +8,11 @@ namespace JustyBase.NetezzaDriver;
 public sealed class NzCommand : DbCommand
 {
     internal PreparedStatement? NewPreparedStatement { get; set; } = null;
+
+    internal Sylvan? GetColumnStringPool(int colnum)
+    {
+        return NewPreparedStatement?.Description?[colnum].StringPool;
+    }
 
     private RowValue[] _row = null!;
     public void AddRow(RowValue[] row)
@@ -75,21 +81,21 @@ public sealed class NzCommand : DbCommand
                 _connection.InTransaction = true;
             }
             _connection.Execute(this, operation);
+            _connection.SetState(ConnectionState.Open);
         }
         catch (AttributeException ex)
         {
             if (_connection is null)
             {
-                throw new InterfaceException("Cursor closed", ex);
+                throw new InterfaceException("Command closed", ex);
             }
             else if (_connection.IsBaseStreamNull)
             {
-                throw new InterfaceException("Connection closed in Cursor Execute", ex);
+                throw new InterfaceException("Connection closed in Command Execute", ex);
             }
 
             throw;
-        }
-
+        }        
         return this;
     }
 
@@ -146,17 +152,18 @@ public sealed class NzCommand : DbCommand
                 _connection.InTransaction = true;
             }
             _prevReader = _connection.ExecuteReader(this, CommandText);
+            _connection.SetState(ConnectionState.Open);
             return _prevReader;
         }
         catch (Exception ex)
         {
             if (Connection is null)
             {
-                throw new InterfaceException("Cursor closed", ex);
+                throw new InterfaceException("Command closed", ex);
             }
             else if (_connection.IsBaseStreamNull)
             {
-                throw new InterfaceException("Connection closed in Cursor Execute", ex);
+                throw new InterfaceException("Connection closed in Command Execute", ex);
             }
             throw;
         }

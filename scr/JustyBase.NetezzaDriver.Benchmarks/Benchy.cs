@@ -1,7 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using JustyBase.NetezzaDriver;
-using System.Data;
 using System.Data.Common;
 using System.Data.Odbc;
 
@@ -19,7 +17,7 @@ public class Benchy
 
     private const int _port = 5480;
 
-    private DbConnection _nzNewConnection = null!;
+    private NzConnection _nzNewConnection = null!;
     private DbConnection _odbcConnection = null!;
 
     [GlobalSetup]
@@ -39,11 +37,19 @@ public class Benchy
         _odbcConnection.Dispose();
     }
     [Params(
-        "SELECT 1,2,3,4,5,6,7,8,9,10,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 10001",
-        //"SELECT 1,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 10002",
-        //"SELECT 2,* FROM JUST_DATA..DIMDATE DD ORDER BY ROWID LIMIT 10003",
-        //"SELECT 8,'aaaa' FROM JUST_DATA..FACTPRODUCTINVENTORY DD ORDER BY ROWID LIMIT 10003",
-        "SELECT * FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 10004"
+        "SELECT 1,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 500001",
+        "SELECT * FROM JUST_DATA..DIMDATE DD ORDER BY ROWID LIMIT 10002",
+        "SELECT 1,2,3,'abc'::char(10),'ąężźń'::nchar(12),'aaaa' || ((RANDOM()*100)::INT),'xaaa' || ((RANDOM()*100)::INT),'yaaa' || ((RANDOM()*100)::INT),'zaaa' || ((RANDOM()*100)::INT) FROM JUST_DATA..FACTPRODUCTINVENTORY DD ORDER BY ROWID LIMIT 50003"
+        //"SELECT 1,2,3,'a' || ((RANDOM()*100)::INT),'b' || ((RANDOM()*100)::INT),'c' || ((RANDOM()*100)::INT) FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 10004"
+        //"SELECT * FROM JUST_DATA..DIMCUSTOMER ORDER BY ROWID",
+        //"SELECT * FROM JUST_DATA..DIMEMPLOYEE ORDER BY ROWID ",
+        //"SELECT '12:00:00'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
+        //"SELECT '12:00:00'::TIME FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID"
+        //"SELECT '12:00:00'::TIME, '12:00:00'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ",
+        //"SELECT '12:00:00'::TIME, '12:00:00-12'::TIMETZ, '12:00:00+12'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMACCOUNT LIMIT 1",
+        //"SELECT RANDOM() FROM JUST_DATA..FACTPRODUCTINVENTORY ORDER BY ROWID LIMIT 10000"
+        //"SELECT * FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
+        //"SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY ORDER BY ROWID"
         )]
     public string Query { get; set; } = "";
 
@@ -52,20 +58,18 @@ public class Benchy
     {
         ReaderValues(_nzNewConnection, Query);
     }
-
+    [Benchmark]
+    public void JustyNzDriverTyped()
+    {
+        ReadedTyped(_nzNewConnection, Query);
+    }
     [Benchmark]
     public void NzOdbc()
     {
         ReaderValues(_odbcConnection, Query);
     }
 
-    [Benchmark]
-    public void JustyNzDriverTyped()
-    {
-        ReadedTyped(_nzNewConnection, Query);
-    }
-
-    [Benchmark]
+    //[Benchmark] same as NzOdbc
     public void NzOdbcTyped()
     {
         ReadedTyped(_odbcConnection, Query);
@@ -73,9 +77,9 @@ public class Benchy
 
     private static void ReaderValues(DbConnection dbConnection, string query)
     {
-        using var cursor = dbConnection.CreateCommand();
-        cursor.CommandText = query;
-        using var reader = cursor.ExecuteReader();
+        using var nzCommand = dbConnection.CreateCommand();
+        nzCommand.CommandText = query;
+        using var reader = nzCommand.ExecuteReader();
         while (reader.Read())
         {
             for (int i = 0; i < reader.FieldCount; i++)
@@ -132,22 +136,9 @@ public class Benchy
                 {
                     var o = reader.GetValue(i);
                 }
-
             }
         }
     }
 }
 
-//| Method             | Query                | Mean     | Error   | StdDev  | Gen0      | Allocated  |
-//|------------------- |--------------------- |---------:|--------:|--------:|----------:|-----------:|
-//| JustyNzDriver      | SELEC(...)10004 [76] | 171.1 ms | 2.65 ms | 2.48 ms |  666.6667 | 7841.31 KB |
-//| NzOdbc             | SELEC(...)10004 [76] | 160.5 ms | 3.18 ms | 4.13 ms | 1000.0000 | 8233.31 KB |
-//| JustyNzDriverTyped | SELEC(...)10004 [76] | 160.5 ms | 3.18 ms | 5.23 ms |  500.0000 | 4793.16 KB |
-//| NzOdbcTyped        | SELEC(...)10004 [76] | 155.4 ms | 1.43 ms | 1.27 ms | 1000.0000 | 8233.31 KB |
 
-//| JustyNzDriver      | SELEC(...)10001 [96] | 125.1 ms | 2.42 ms | 1.89 ms |  500.0000 | 4148.57 KB |
-//| NzOdbc             | SELEC(...)10001 [96] | 141.4 ms | 2.77 ms | 3.98 ms |  500.0000 | 4928.16 KB |
-//| JustyNzDriverTyped | SELEC(...)10001 [96] | 130.8 ms | 2.61 ms | 7.37 ms |         - |  788.86 KB |
-//| NzOdbcTyped        | SELEC(...)10001 [96] | 145.0 ms | 2.85 ms | 4.84 ms |  500.0000 | 4928.16 KB |
-
-//TODO string pooling

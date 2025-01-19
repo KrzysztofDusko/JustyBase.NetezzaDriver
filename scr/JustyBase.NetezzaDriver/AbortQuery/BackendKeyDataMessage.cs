@@ -1,4 +1,6 @@
-﻿namespace JustyBase.NetezzaDriver;
+﻿using JustyBase.NetezzaDriver.Utility;
+
+namespace JustyBase.NetezzaDriver.AbortQuery;
 
 /// <summary>
 /// Represents a message containing backend key data from the server.
