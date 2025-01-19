@@ -15,21 +15,13 @@ public class ExternalBench
     private const int _port = 5480;
 
     private NzConnection _nzNewConnection = null!;//default = python
-    private NzConnection _nzNewConnectionDotnet = null!;
-    private NzConnection _nzNewConnectionOdbc= null!;
     private DbConnection _odbcConnection = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         _nzNewConnection = new NzConnection(_userName, _password, _host, _dbName, _port);
-        _nzNewConnection.Open();
-
-        _nzNewConnectionDotnet = new NzConnection(_userName, _password, _host, _dbName, _port);
-        _nzNewConnectionDotnet.Open(ClientTypeId.SqlDotnet);
-
-        _nzNewConnectionOdbc = new NzConnection(_userName, _password, _host, _dbName, _port);
-        _nzNewConnectionOdbc.Open(ClientTypeId.SqlOdbc);
+        _nzNewConnection.Open(ClientTypeId.SqlDotnet);
 
         _odbcConnection = new OdbcConnection($"Driver={{NetezzaSQL}};servername={_host};port={_port};database={_dbName};username={_userName};password={_password}");
         _odbcConnection.Open();
@@ -39,26 +31,13 @@ public class ExternalBench
     public void Cleanup()
     {
         _nzNewConnection.Dispose();
-        _nzNewConnectionDotnet.Dispose();
-        _nzNewConnectionOdbc.Dispose();
         _odbcConnection.Dispose();
     }
-
 
     [Benchmark]
     public void ExternalUnloadAndLoadNz()
     {
-        TestOneExternalTable(_nzNewConnection, "DIMCUSTOMER","python");
-    }
-    //[Benchmark]
-    public void ExternalUnloadAndLoadNzDotnet()
-    {
-        TestOneExternalTable(_nzNewConnectionDotnet, "DIMCUSTOMER", "dotnet");
-    }
-    //[Benchmark]
-    public void ExternalUnloadAndLoadNzOdbc()
-    {
-        TestOneExternalTable(_nzNewConnectionOdbc, "DIMCUSTOMER", "odbc");
+        TestOneExternalTable(_nzNewConnection, "DIMCUSTOMER","dotnet");
     }
 
     [Benchmark]

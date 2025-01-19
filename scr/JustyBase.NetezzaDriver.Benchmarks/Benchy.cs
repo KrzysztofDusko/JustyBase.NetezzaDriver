@@ -37,19 +37,14 @@ public class Benchy
         _odbcConnection.Dispose();
     }
     [Params(
-        "SELECT 1,* FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 500001",
-        "SELECT * FROM JUST_DATA..DIMDATE DD ORDER BY ROWID LIMIT 10002",
-        "SELECT 1,2,3,'abc'::char(10),'ąężźń'::nchar(12),'aaaa' || ((RANDOM()*100)::INT),'xaaa' || ((RANDOM()*100)::INT),'yaaa' || ((RANDOM()*100)::INT),'zaaa' || ((RANDOM()*100)::INT) FROM JUST_DATA..FACTPRODUCTINVENTORY DD ORDER BY ROWID LIMIT 50003"
-        //"SELECT 1,2,3,'a' || ((RANDOM()*100)::INT),'b' || ((RANDOM()*100)::INT),'c' || ((RANDOM()*100)::INT) FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 10004"
-        //"SELECT * FROM JUST_DATA..DIMCUSTOMER ORDER BY ROWID",
-        //"SELECT * FROM JUST_DATA..DIMEMPLOYEE ORDER BY ROWID ",
-        //"SELECT '12:00:00'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
-        //"SELECT '12:00:00'::TIME FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID"
-        //"SELECT '12:00:00'::TIME, '12:00:00'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ",
-        //"SELECT '12:00:00'::TIME, '12:00:00-12'::TIMETZ, '12:00:00+12'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMACCOUNT LIMIT 1",
-        //"SELECT RANDOM() FROM JUST_DATA..FACTPRODUCTINVENTORY ORDER BY ROWID LIMIT 10000"
-        //"SELECT * FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
-        //"SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY ORDER BY ROWID"
+        "/*1*/SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY FI ORDER BY ROWID LIMIT 50000",
+        "/*2*/SELECT * FROM JUST_DATA..DIMDATE DD ORDER BY ROWID LIMIT 10000"
+        //"/*3*/SELECT 1,2,3,'abc'::char(10),'ąężźń'::nchar(12),'aaaa' || ((RANDOM()*100)::INT),'xaaa' || ((RANDOM()*100)::INT),'yaaa' || ((RANDOM()*100)::INT),'zaaa' || ((RANDOM()*100)::INT) FROM JUST_DATA..FACTPRODUCTINVENTORY DD ORDER BY ROWID LIMIT 50000"
+        //"/*4*/SELECT 1,2,3,'a' || ((RANDOM()*100)::INT),'b' || ((RANDOM()*100)::INT),'c' || ((RANDOM()*100)::INT) FROM JUST_DATA.._V_RELATION_COLUMN ORDER BY NAME,ATTNUM LIMIT 10000"
+        //"/*5*/SELECT '12:00:00'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
+        //"/*6*/SELECT '12:00:00'::TIME, '12:00:00-12'::TIMETZ, '12:00:00+12'::TIMETZ,'14:13:12.4321+11:15'::TIMETZ FROM JUST_DATA..DIMACCOUNT LIMIT 1",
+        //"/*7*/SELECT RANDOM() FROM JUST_DATA..FACTPRODUCTINVENTORY ORDER BY ROWID LIMIT 10000"
+        //"/*8*/SELECT * FROM JUST_DATA..DIMCURRENCY ORDER BY ROWID",
         )]
     public string Query { get; set; } = "";
 
@@ -131,6 +126,26 @@ public class Benchy
                 else if (reader.GetFieldType(i) == typeof(string))
                 {
                     var o = reader.GetString(i);
+                }
+                else if (reader.GetFieldType(i) == typeof(bool))
+                {
+                    var o = reader.GetBoolean(i);
+                }
+                else if (reader.GetFieldType(i) == typeof(byte))
+                {
+                    var o = reader.GetByte(i);
+                }
+                else if (reader.GetFieldType(i) == typeof(char))
+                {
+                    var o = reader.GetChar(i);
+                }
+                else if (reader.GetFieldType(i) == typeof(Guid))
+                {
+                    var o = reader.GetGuid(i);
+                }
+                else if (reader.GetFieldType(i) == typeof(short))
+                {
+                    var o = reader.GetInt16(i);
                 }
                 else
                 {
