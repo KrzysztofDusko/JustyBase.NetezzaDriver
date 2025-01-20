@@ -474,6 +474,11 @@ public sealed class NzConnection : DbConnection
     {
         return _lastResponse == (byte)BackendMessageCode.RowDescription;
     }
+    internal bool NewRowDescriptionStandardReceived()
+    {
+        return _lastResponse == (byte)BackendMessageCode.RowDescriptionStandard;
+    }
+
     internal bool IsCommandComplete()
     {
         return _lastResponse == (byte)BackendMessageCode.CommandComplete;

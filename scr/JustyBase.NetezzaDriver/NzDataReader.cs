@@ -24,6 +24,29 @@ public sealed class NzDataReader : DbDataReader
         }
     }
 
+    public override bool Read()
+    {
+        if (IsClosed)// do not even try to read if there is no more data
+        {
+            return false;
+        }
+
+        while (_opened = _nzConnection.DoNextStep(_nzCommand))
+        {
+            if (_nzConnection.NewRowReceived())
+            {
+                return true;
+            }
+            if (_nzConnection.NewRowDescriptionReceived())
+            {
+                CheckIfRowsAreAvaiable();
+                return false;
+            }
+        }
+        return false;//final stop!
+    }
+
+
     public override void Close()
     {
         if (!IsClosed)
@@ -183,27 +206,6 @@ public sealed class NzDataReader : DbDataReader
 
     private bool _opened = true;
     public bool ShouldContinue => _opened;
-    public override bool Read()
-    {
-        if (IsClosed)// do not even try to read if there is no more data
-        {
-            return false;
-        }
-
-        while (_opened = _nzConnection.DoNextStep(_nzCommand))
-        {
-            if (_nzConnection.NewRowReceived())
-            {
-                return true;
-            }
-            if (_nzConnection.NewRowDescriptionReceived())
-            {
-                CheckIfRowsAreAvaiable();
-                return false;
-            }
-        }
-        return false;//final stop!
-    }
 
     /// <summary>
     /// Check if there are more rows to read
@@ -219,9 +221,15 @@ public sealed class NzDataReader : DbDataReader
         {
             _hasRows = true;
         }
+        if (HasRows && _nzConnection.NewRowDescriptionStandardReceived())
+        {
+            _opened = _nzConnection.DoNextStep(_nzCommand);
+        }
     }
 
     //todo: implement more columns
+    //todo: unit test
+
     public override DataTable? GetSchemaTable()
     {
         DataTable dt = new DataTable();
