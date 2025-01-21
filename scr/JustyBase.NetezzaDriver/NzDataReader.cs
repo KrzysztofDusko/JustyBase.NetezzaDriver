@@ -238,7 +238,14 @@ public sealed class NzDataReader : DbDataReader
         {
             if (GetFieldType(ordinal) == typeof(decimal))
             {
-                dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
+                if (_nzConnection.IsExtendedRowDescriptionAvaiable())
+                {
+                    dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
+                }
+                else
+                { 
+                    dt.Rows.Add([_nzConnection.CTableIFieldScaleAlternative(ordinal)]);
+                }
             }
             else
             {

@@ -1212,14 +1212,30 @@ public sealed class NzConnection : DbConnection
     {
         return (_tupdesc.FieldSize[coldex] & 0x00FF);
     }
+    internal int CTableIFieldScaleAlternative(int coldex)
+    {
+        var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
+        typeModyfier &= 0b111111;
+        return ((typeModyfier >> 3) - 2) * 8 + (typeModyfier & 0b000111);
+    }
+
+    //public string TypeModifierBinary(int coldex)
+    //{
+    //    var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
+    //    typeModyfier &= 0b111111;
+    //    var xx  =  ((typeModyfier >> 3) - 2) * 8 + (typeModyfier & 0b000111);
+    //    return xx.ToString() + "_" + Convert.ToString(_nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier ,2).PadLeft(32,'0');
+    //}
+
 
     private int CTableIFieldNumericDigit32Count(int coldex)
     {
         int sizeTNumericDigit = 4;
         return _tupdesc.FieldTrueSize[coldex] / sizeTNumericDigit;
     }
+    internal bool IsExtendedRowDescriptionAvaiable() => _tupdesc is not null;
 
-    
+
     private int CTableIFieldType(int curField)
     {
         return _tupdesc.FieldType[curField];
