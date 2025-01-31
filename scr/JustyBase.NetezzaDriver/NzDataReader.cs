@@ -233,19 +233,27 @@ public sealed class NzDataReader : DbDataReader
     public override DataTable? GetSchemaTable()
     {
         DataTable dt = new DataTable();
+        dt.Columns.Add("ColumnName", typeof(string));
+        dt.Columns.Add("ColumnOrdinal", typeof(int));
+        dt.Columns.Add("NumericPrecision", typeof(int));
         dt.Columns.Add("NumericScale", typeof(int));
         for (int ordinal = 0; ordinal < FieldCount; ordinal++)
         {
             if (GetFieldType(ordinal) == typeof(decimal))
             {
-                if (_nzConnection.IsExtendedRowDescriptionAvaiable())
-                {
-                    dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
-                }
-                else
-                { 
-                    dt.Rows.Add([_nzConnection.CTableIFieldScaleAlternative(ordinal)]);
-                }
+                dt.Rows.Add([
+                    _nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                    , ordinal + 1
+                    ,_nzConnection.CTableIFieldPrecisionAlternative(ordinal), _nzConnection.CTableIFieldScaleAlternative(ordinal)
+                    ]);
+                //if (_nzConnection.IsExtendedRowDescriptionAvaiable())
+                //{
+                //    dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
+                //}
+                //else
+                //{ 
+                //    dt.Rows.Add([_nzConnection.CTableIFieldScaleAlternative(ordinal)]);
+                //}
             }
             else
             {

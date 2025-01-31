@@ -109,11 +109,11 @@ internal static class Core
     //    return code.Concat(IPack(data.Length + 4)).Concat(data).ToArray();
     //}
 
-    public static byte[] IPack(int value)
+    public static void IPack(int value, Span<byte> destination)
     {
         value = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
         Span<byte> bytes = stackalloc byte[sizeof(int)];
         Unsafe.As<byte, int>(ref bytes[0]) = value;
-        return bytes.ToArray();
+        bytes.CopyTo(destination);
     }
 }

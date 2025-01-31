@@ -318,18 +318,22 @@ public sealed class NzConnection : DbConnection
         {
             PGUtil.Skip4Bytes(_stream!);
         }
-
-        List<byte> buf;
-
+        if (query is not null)
+        {
+            RegenerateBuffer(10 + 4 * query.Length);
+        }
+        _tmp_buffer[0] = (byte)'P';
         if (_commandNumber != -1)
         {
             _commandNumber += 1;
-            buf = new List<byte> { (byte)'P' };
-            buf.AddRange(Core.IPack(_commandNumber));
+            Core.IPack(_commandNumber, _tmp_buffer.AsSpan(1));
         }
         else
         {
-            buf = [(byte)'P', 0xFF, 0xFF, 0xFF, 0xFF];
+            _tmp_buffer[1] = 0xFF;//NEW
+            _tmp_buffer[2] = 0xFF;//NEW
+            _tmp_buffer[3] = 0xFF;//NEW
+            _tmp_buffer[4] = 0xFF;//NEW
         }
 
         if (_commandNumber > 100000)
@@ -337,17 +341,16 @@ public sealed class NzConnection : DbConnection
             _commandNumber = 1;
         }
 
+        int written = 5;
         if (query != null)
         {
-            var queryBytes = Encoding.UTF8.GetBytes(query);
-            buf.AddRange(queryBytes);
-            buf.Add((byte)0);
+            written += Encoding.UTF8.GetBytes(query, _tmp_buffer.AsSpan(written));//NEW
+            _tmp_buffer[written] = 0;
+            written += 1;
         }
-        _stream.Write(buf.ToArray());
+        _stream.Write(_tmp_buffer,0,written);
         _stream.Flush();
-
-        _logger?.LogDebug("Buffer sent to nps: {Buffer}", NzConnectionHelpers.ClientEncoding.GetString(buf.ToArray()));
-
+        _logger?.LogDebug("Buffer sent to nps: {Buffer}", NzConnectionHelpers.ClientEncoding.GetString(_tmp_buffer,0,written));
         _state = ConnectionState.Executing;
     }
 
@@ -600,7 +603,8 @@ public sealed class NzConnection : DbConnection
                 _nextRelatedFileStream = new FileStream(finaName, FileMode.OpenOrCreate, FileAccess.Write);
                 _logger?.LogDebug("Successfully opened file: {Filename}", finaName);
                 // file open successfully, send status back to datawriter
-                var buf = Core.IPack(0);
+                //var buf = Core.IPack(0);
+                byte[] buf = [0, 0, 0, 0];
                 WriteSpan(buf);
                 Flush();
             }
@@ -1216,17 +1220,17 @@ public sealed class NzConnection : DbConnection
     {
         var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
         typeModyfier &= 0b111111;
-        return ((typeModyfier >> 3) - 2) * 8 + (typeModyfier & 0b000111);
+        //return ((typeModyfier >> 3) - 2) * 8 + (typeModyfier & 0b000111);
+        //return (typeModyfier & 0b111000) - 16 + (typeModyfier & 0b000111);
+        return typeModyfier - 16;
     }
 
-    //public string TypeModifierBinary(int coldex)
-    //{
-    //    var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
-    //    typeModyfier &= 0b111111;
-    //    var xx  =  ((typeModyfier >> 3) - 2) * 8 + (typeModyfier & 0b000111);
-    //    return xx.ToString() + "_" + Convert.ToString(_nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier ,2).PadLeft(32,'0');
-    //}
-
+    internal int CTableIFieldPrecisionAlternative(int coldex)
+    {
+        var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
+        typeModyfier = typeModyfier >> 16;
+        return typeModyfier & 0b0000000000111111;
+    }
 
     private int CTableIFieldNumericDigit32Count(int coldex)
     {

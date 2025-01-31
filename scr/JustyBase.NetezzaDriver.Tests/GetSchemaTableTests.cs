@@ -10,7 +10,7 @@ namespace JustyBase.NetezzaDriver.Tests;
 public class GetSchemaTableTests
 {
     [Fact]
-    public void NumericScaleTest()
+    public void NumericPrecisionScaleTest()
     {
         string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
@@ -26,13 +26,20 @@ public class GetSchemaTableTests
             {
                 for (int scale = 0; scale <= precision && scale <= 28; scale++)
                 {
-                    cmd.CommandText = $"SELECT 0::NUMERIC({precision},{scale}) {from}";
+                    cmd.CommandText = $"SELECT 0::NUMERIC({precision},{scale}) AS COL_XYZ {from}";
                     var reader = cmd.ExecuteReader();
                     var st = reader.GetSchemaTable();
                     var numericScale = (int)(st!.Rows[0]["NumericScale"]);
+                    var numericPrecision = (int)(st!.Rows[0]["NumericPrecision"]);
+                    var columnName = (string)(st!.Rows[0]["ColumnName"]);
+                    var columnOrdinal = (int)(st!.Rows[0]["ColumnOrdinal"]);
 
-                    //Debug.WriteLine($"{connection.TypeModifierBinary(0)} NUMERIC({precision},{j})");
+                    Assert.Equal("COL_XYZ", columnName);
+                    Assert.Equal(1, columnOrdinal);
+                    
+                    //Debug.WriteLine($"{connection.TypeModifierBinary(0)} NUMERIC({precision},{scale})");
                     Assert.Equal(scale, numericScale);
+                    Assert.Equal(precision, numericPrecision);
                     do
                     {
                         Console.WriteLine(reader.HasRows);
@@ -49,41 +56,3 @@ public class GetSchemaTableTests
         }
     }
 }
-//typeModyfier -> leads to the following scales
-//010 001 -> 1
-//010 010 -> 2
-//010 011 -> 3
-//010 100 -> 4
-//010 101 -> 5
-//010 110 -> 6
-//010 111 -> 7
-//011 000 -> 8
-//011 001 -> 9
-//011 010 -> 10
-//011 011 -> 11
-//011 100 -> 12
-//011 101 -> 13
-//011 110 -> 14
-//011 111 -> 15
-//100 000 -> 16
-//100 001 -> 17
-//…
-//110 011 -> 35
-//110 100 -> 36
-//110 101 -> 37
-//110 110 -> 38
-
-// -> 
-//X Y  
-// X
-//010 = 0 (2)
-//011 = 8 (3)
-//100 = 16 (4)
-//110 = 32 (6)
-
-//Y
-//001 = 1 (1)
-//010 = 2 (2)
-//011 = 3 (3)
-//....
-// => scale = (X-2) * 8 + Y
