@@ -12,6 +12,12 @@ internal static class NzConnectionHelpers
     //add pooling ? 
     internal static string TextRecv(byte[] data, int offset, int length, Sylvan? sp)
     {
+        if (length + offset > data.Length)
+        {
+            length = data.Length - offset;
+            Debug.Assert(false);
+        }
+
         if (sp is not null)
         {
             return sp.GetString(data.AsSpan(offset, length), ClientEncoding);
