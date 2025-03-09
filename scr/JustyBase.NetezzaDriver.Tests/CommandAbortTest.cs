@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using JustyBase.NetezzaDriver.Logging;
+using System.Diagnostics;
 using Xunit.Abstractions;
 
 namespace JustyBase.NetezzaDriver.Tests;
@@ -18,12 +19,38 @@ public class CommandAbortTest
     public async Task AbortTest1()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        await AbortTestHelper(connection);
+    }
+
+    [Fact]
+    public async Task AbortTestWithSSL()
+    {
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem", logger: new SimpleNzLogger());
+        await AbortTestHelper(connection);
+    }
+
+    private async Task AbortTestHelper(NzConnection connection)
+    {
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
 
         using var command = connection.CreateCommand();
-        command.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
+        command.CommandText = "show connection";
         command.ExecuteNonQuery();
+        using var rdr1 = command.ExecuteReader();
+        while (rdr1.Read())
+        {
+            for (int i = 0; i < rdr1.FieldCount; i++)
+            {
+                Debug.WriteLine(rdr1.GetString(i) + "|");
+            }
+            Debug.WriteLine("");
+        }
+
+        command.CommandText = "create temp table abc as (select now() as col1, random() as col2)";
+        command.ExecuteNonQuery();
+
+
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         for (int i = 0; i < 3; i++)
@@ -67,7 +94,8 @@ public class CommandAbortTest
         rdr.Read();//do not throws.
     }
 
-    private string _heavySql =
+
+    private const string _heavySql =
     """
         SELECT     
         F1.PRODUCTKEY    

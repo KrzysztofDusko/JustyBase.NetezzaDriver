@@ -17,7 +17,7 @@ public class SslTest
     public void BasicTests()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
-            securityLevel: 3, sslCerFilePath: @"D:\server-cert.pem");
+            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem");
         //this cert file is invalid
         Assert.Throws<AuthenticationException>(() =>
         {
@@ -30,7 +30,7 @@ public class SslTest
     public void BasicTests2()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
-            securityLevel: 3, sslCerFilePath: @"D:\server-cert.pem", logger: new SimpleNzLogger());
+            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem", logger: new SimpleNzLogger());
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT 15 FROM JUST_DATA..DIMDATE";
@@ -40,3 +40,11 @@ public class SslTest
         Assert.Equal(15, (int)res);
     }
 }
+
+
+// https://www.ibm.com/docs/en/netezza?topic=npssac-netezza-performance-server-client-encryption-security-1
+// https://www.ibm.com/docs/en/netezza?topic=cnpshac-show-connection-records-1
+//sudo nano /nz/simdata/postgresql.conf
+//./simdata/postgresql.conf
+//server_cert_file='/nz/simdata/security/server-cert.pem'
+//server_key_file='/nz/simdata/security/server-key.pem'

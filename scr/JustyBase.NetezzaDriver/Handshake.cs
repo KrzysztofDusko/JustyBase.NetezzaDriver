@@ -105,7 +105,7 @@ internal sealed class Handshake
         _guardiumAppName = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
     }
 
-    public Stream? Startup(string database, int securityLevel, string user, string password, object? pgOptions)
+    public Stream? Startup(string database, SecurityLevelCode securityLevel, string user, string password, object? pgOptions)
     {
         // Negotiate the handshake version (connection protocol)
         if (!ConnHandshakeNegotiate(_hsVersion, _protocol2))
@@ -280,7 +280,7 @@ internal sealed class Handshake
 
 
 
-    private bool ConnSendHandshakeInfo(string database,int securityLevel,int? hsVersion,string user,object? pgOptions)
+    private bool ConnSendHandshakeInfo(string database, SecurityLevelCode securityLevel,int? hsVersion,string user,object? pgOptions)
     {
         // We need database information at the backend in order to
         // select security restrictions. So always send the database first
@@ -372,24 +372,17 @@ internal sealed class Handshake
 
     // ... other code ...
 
-    private bool ConnSecureSession(int securityLevel)
+    private bool ConnSecureSession(SecurityLevelCode securityLevel)
     {
         short information = HSV2_SSL_NEGOTIATE;
-        int currSecLevel = securityLevel;
+        int currSecLevel = (int)securityLevel;
 
         while (information != 0)
         {
             short opcode = information;
             if (information == HSV2_SSL_NEGOTIATE)
             {
-                // SecurityLevel meaning
-                // ---------------------------------------
-                //      0    Preferred Unsecured session
-                //      1    Only Unsecured session
-                //      2    Preferred Secured session
-                //      3    Only Secured session
-                //
-                _logger?.LogDebug("Security Level requested = {SecurityLevel}", currSecLevel);
+                _logger?.LogDebug("Security Level requested = {SecurityLevel}", securityLevel);
             }
 
             PGUtil.WriteInt32(_stream, 2 + 4 + 4);

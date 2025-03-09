@@ -1,7 +1,6 @@
 # JustyBase.NetezzaDriver 
 JustyBase.NetezzaDriver is a .NET library for interacting with IBM Netezza Performance Server databases. It provides a set of classes and methods to facilitate database connections, command execution, and data retrieval.
 Code is is based on [nzpy](https://github.com/IBM/nzpy) and [npgsql](https://github.com/npgsql/npgsql)
-> ⚠️ **Warning**: This project is currently under active development and is not yet ready for production use. The API may have significant changes before the first stable release.
 
 
 ## Features

@@ -92,7 +92,7 @@ public sealed class NzConnection : DbConnection
     public const int NzTypeIntvsAbsTimeFIX = 39;//https://github.com/IBM/nzpy/issues/61
 
     public NzConnection(string user, string password, string host, string database,
-        int port = 5480, int securityLevel = 0, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+        int port = 5480, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
     {
         _logger = logger;
         _securityLevel = securityLevel;
@@ -271,7 +271,7 @@ public sealed class NzConnection : DbConnection
 
     private readonly Dictionary<string, string>? _pgOptions = null;
 
-    private readonly int _securityLevel = 0;
+    private readonly SecurityLevelCode _securityLevel = SecurityLevelCode.PreferredUnsecured;
     private readonly string? _sslCerFilePath;
 
     private bool _disposed = false;
@@ -1654,6 +1654,8 @@ public sealed class InterfaceException : DbException
     public InterfaceException( string msg) : base(msg) { }
     public InterfaceException(string msg, Exception exception) : base(msg, exception) { }
 }
+
+
 public sealed class AttributeException : DbException { }
 //public class NotSupportedException : DbException { }
 //public class ConnectionClosedException : DbException { }
