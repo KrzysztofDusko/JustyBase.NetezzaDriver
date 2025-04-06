@@ -48,7 +48,8 @@ public sealed class NzConnection : DbConnection
     private readonly bool _tcpKeepAlive = true;
 
     private BackendKeyDataMessage _backendKeyData = null!;
-    public int? Pid => _backendKeyData.BackendProcessId;
+
+    public int Pid => _backendKeyData?.BackendProcessId ?? -1;
 
     private readonly string _database;
     private readonly string _user;
@@ -103,6 +104,144 @@ public sealed class NzConnection : DbConnection
         _host = host;
         _port = port;
         _tmp_buffer = ArrayPool<byte>.Shared.Rent(4096);
+    }
+
+    public NzConnection(string connectionString, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+    {
+        var parameters = ParseConnectionString(connectionString);
+
+        _logger = logger;
+        _securityLevel = securityLevel;
+        _sslCerFilePath = sslCerFilePath;
+        _database = parameters.Database ?? "";
+        _user = parameters.User;
+        _password = parameters.Password;
+        _host = parameters.Host;
+        _port = parameters.Port ?? 5480;
+        if (parameters.Timeout.HasValue)
+        {
+            ConnectionTimeoutDuration = TimeSpan.FromSeconds(parameters.Timeout.Value);
+        }
+        _tmp_buffer = ArrayPool<byte>.Shared.Rent(4096);
+    }
+
+    public NzConnection(string connectionString, string database, int commandTimeoutSec, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+    {
+        var parameters = ParseConnectionString(connectionString);
+
+        _logger = logger;
+        _securityLevel = securityLevel;
+        _sslCerFilePath = sslCerFilePath;
+        _database = database;
+        _user = parameters.User;
+        _password = parameters.Password;
+        _host = parameters.Host;
+        _port = parameters.Port ?? 5480;
+        if (parameters.Timeout.HasValue)
+        {
+            ConnectionTimeoutDuration = TimeSpan.FromSeconds(parameters.Timeout.Value);
+        }
+        _tmp_buffer = ArrayPool<byte>.Shared.Rent(4096);
+        this.CommandTimeout = TimeSpan.FromSeconds(commandTimeoutSec);
+    }
+
+
+    /// <summary>
+    /// Parses a connection string into its component parts, supporting passwords that may contain semicolons when enclosed in curly braces.
+    /// </summary>
+    /// <param name="connectionString">Connection string in format "User=value;Password=value" or "User=value;Password={value;with;semicolons}"</param>
+    /// <returns>A tuple containing connection parameters</returns>
+    /// <exception cref="NetezzaException">Thrown when mandatory parameters are missing or format is invalid</exception>
+    private static (string User, string Password, string Host, string? Database, int? Port, int? Timeout) ParseConnectionString(string connectionString)
+    {
+        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        int position = 0;
+
+        while (position < connectionString.Length)
+        {
+            // Skip whitespace
+            while (position < connectionString.Length && char.IsWhiteSpace(connectionString[position]))
+                position++;
+
+            // Find key
+            int keyStart = position;
+            while (position < connectionString.Length && connectionString[position] != '=')
+                position++;
+
+            if (position >= connectionString.Length)
+                break;
+
+            string key = connectionString[keyStart..position].Trim();
+            position++; // Skip '='
+
+            // Handle value
+            string value;
+            if (position < connectionString.Length && connectionString[position] == '{')
+            {
+                // Handle curly brace enclosed value (for passwords with semicolons)
+                int braceStart = position + 1;
+                position = connectionString.IndexOf('}', braceStart);
+
+                if (position == -1)
+                    throw new NetezzaException("Unterminated curly brace in connection string");
+
+                value = connectionString[braceStart..position];
+                position++; // Skip closing brace
+
+                // Skip to next parameter
+                while (position < connectionString.Length && connectionString[position] != ';')
+                    position++;
+            }
+            else
+            {
+                // Handle regular value
+                int valueStart = position;
+                while (position < connectionString.Length && connectionString[position] != ';')
+                    position++;
+
+                value = connectionString[valueStart..position].Trim();
+            }
+
+            if (key.Length > 0)
+            {
+                parameters[key] = value;
+            }
+
+            position++; // Skip semicolon
+        }
+
+        // Extract mandatory parameters
+        if (!parameters.TryGetValue("User", out var user) && !parameters.TryGetValue("Username", out user))
+        {
+            throw new NetezzaException("Username is required in connection string");
+        }
+
+        if (!parameters.TryGetValue("Password", out var password) && !parameters.TryGetValue("Pwd", out password))
+        {
+            throw new NetezzaException("Password is required in connection string");
+        }
+
+        if (!parameters.TryGetValue("Host", out var host) && !parameters.TryGetValue("Server", out host))
+        {
+            throw new NetezzaException("Host is required in connection string");
+        }
+
+        // Extract optional parameters
+        parameters.TryGetValue("Database", out var database);
+
+        int? port = null;
+        if (parameters.TryGetValue("Port", out var portStr) && int.TryParse(portStr, out var parsedPort))
+        {
+            port = parsedPort;
+        }
+
+        int? timeout = null;
+        if (parameters.TryGetValue("Timeout", out var timeoutStr) && int.TryParse(timeoutStr, out var parsedTimeout))
+        {
+            timeout = parsedTimeout;
+        }
+
+        return (user, password, host, database, port, timeout);
     }
 
 
@@ -369,8 +508,18 @@ public sealed class NzConnection : DbConnection
     {
         _stream.Flush();
     }
+    public sealed partial class NzNoticeEventArgs : System.EventArgs
+    {
+        public NzNoticeEventArgs(string message)
+        {
+            Message = message;
+        }
+        public string Message { get; init; }
+        public override string ToString() => Message;
+    }
 
-    public event Action<string>? NoticeReceived;
+    public delegate void NzNoticeEventHandler(object sender, NzNoticeEventArgs e);
+    public event NzNoticeEventHandler? NoticeReceived;
 
     private void OnNoticeReceived(string notice)
     {
@@ -379,7 +528,7 @@ public sealed class NzConnection : DbConnection
             notice = notice["NOTICE:".Length..];
         }
         notice = notice.Trim().TrimEnd('\x00');
-        NoticeReceived?.Invoke(notice);
+        NoticeReceived?.Invoke(this, new NzNoticeEventArgs(notice));
     }
 
     public TimeSpan CommandTimeout { get; set; } =  TimeSpan.FromSeconds(60);
@@ -392,7 +541,6 @@ public sealed class NzConnection : DbConnection
 
     private string _serverVersion = "";
     public override string ServerVersion => _serverVersion;
-
 
     private ConnectionState _state = ConnectionState.Closed;
     public override ConnectionState State => _state;
@@ -1604,6 +1752,19 @@ public sealed class NzConnection : DbConnection
         _nzCommand = new NzCommand(this);
         return _nzCommand;
     }
+
+    public DbCommand CreateDbCommand(string sql)
+    {
+        _nzCommand = new NzCommand(this);
+        _nzCommand.CommandText = sql;
+        return _nzCommand;
+    }
+
+    public NzCommand CreateCommand(string sql)
+    {
+        return (NzCommand)CreateDbCommand(sql);
+    }
+
 
     public override void Open()
     {

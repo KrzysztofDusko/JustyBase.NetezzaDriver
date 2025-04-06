@@ -11,7 +11,10 @@ public class NoticeTests
         connection.Open();
         using var command = connection.CreateCommand();
         List<string> notices = new List<string>();
-        connection.NoticeReceived += o => notices.Add(o);
+        connection.NoticeReceived += (o,e) =>
+        {
+            notices.Add(e.Message);
+        };
         command.CommandText = "CALL CUSTOMER_DOTNET();";
         command.ExecuteNonQuery();
         var expected = new List<string>() { "The customer name is alpha\n", "The customer location is beta\n" };

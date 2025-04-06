@@ -28,9 +28,13 @@ public sealed class NzCommand : DbCommand
     {
         _connection = connection;
     }
+    public NzCommand(string sql, NzConnection connection)
+    {
+        _connection = connection;
+        CommandText = sql;
+    }
 
     private NzConnection _connection;
-
 
     internal int _recordsAffected = -1;
 

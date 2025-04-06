@@ -872,6 +872,16 @@ public class BasicTests : IDisposable
         Assert.Equal(expected, result);
     }
 
+    [Fact]
+    private void TestConenctionString()
+    {
+        string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
+        using var connection = new NzConnection(connectionString);
+        connection.Open();
+        Assert.True(connection.State == System.Data.ConnectionState.Open, "Connection should be open");
+        connection.Close();
+    }
+
 
     [Fact]
     private void ValidateAccessByIndexOrName()
@@ -905,6 +915,42 @@ public class BasicTests : IDisposable
         }
     }
 
+
+    [Fact]
+    private void ValidateAccessByIndexOrName2()
+    {
+        string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
+        using var connection = new NzConnection(connectionString);
+        connection.Open();
+        connection.CommandTimeout = TimeSpan.FromSeconds(0);
+
+        string[] cols = ["EMPLOYEEKEY", "PARENTEMPLOYEEKEY", "EMPLOYEENATIONALIDALTERNATEKEY", "FIRSTNAME", "BIRTHDATE", "TITLE", "LOGINID"];
+        using var cmd = connection.CreateCommand($"SELECT {string.Join(',', cols)} FROM JUST_DATA..DIMEMPLOYEE");
+
+
+        using var rdr = cmd.ExecuteReader();
+        while (rdr.Read())
+        {
+            string?[] vals = new string?[rdr.FieldCount];
+            for (int i = 0; i < rdr.FieldCount; i++)
+            {
+                var o1 = rdr[cols[i]]?.ToString();
+                var o2 = rdr[i]?.ToString();
+                var o3 = rdr.GetValue(i)?.ToString();
+                Assert.Equal(o1, o2);
+                Assert.Equal(o1, o3);
+                vals[i] = o1;
+            }
+            object[] vals2 = new object[rdr.FieldCount];
+            rdr.GetValues(vals2);
+            for (int i = 0; i < rdr.FieldCount; i++)
+            {
+                Assert.Equal(vals[i], vals2[i]?.ToString());
+            }
+        }
+    }
+
+
     [Fact]
     private void CheckDateTimeConsistency()
     {
@@ -925,6 +971,7 @@ public class BasicTests : IDisposable
             }
         }
     }
+
 
     [Fact]
     private void OdbcAndNzResultsShouldMatch()
