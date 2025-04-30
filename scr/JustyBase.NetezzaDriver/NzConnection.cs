@@ -1746,6 +1746,10 @@ public sealed class NzConnection : DbConnection
     }
 
     private NzCommand _nzCommand = null!;
+    public void SetNzCommand(NzCommand nzCommand)
+    {
+        _nzCommand = nzCommand;
+    }
 
     protected override DbCommand CreateDbCommand()
     {

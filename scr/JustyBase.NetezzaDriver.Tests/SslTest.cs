@@ -17,7 +17,7 @@ public class SslTest
     public void BasicTests()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
-            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem");
+            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\Others\keys\server-cert.pem");
         //this cert file is invalid
         Assert.Throws<AuthenticationException>(() =>
         {
@@ -30,7 +30,7 @@ public class SslTest
     public void BasicTests2()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
-            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem", logger: new SimpleNzLogger());
+            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\Others\keys\server-cert.pem", logger: new SimpleNzLogger());
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT 15 FROM JUST_DATA..DIMDATE";

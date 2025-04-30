@@ -25,7 +25,7 @@ public class CommandAbortTest
     [Fact]
     public async Task AbortTestWithSSL()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\keys\server-cert.pem", logger: new SimpleNzLogger());
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\Others\keys\server-cert.pem", logger: new SimpleNzLogger());
         await AbortTestHelper(connection);
     }
 

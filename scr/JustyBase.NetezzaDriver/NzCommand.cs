@@ -27,6 +27,7 @@ public sealed class NzCommand : DbCommand
     public NzCommand(NzConnection connection)
     {
         _connection = connection;
+        connection.SetNzCommand(this);
     }
     public NzCommand(string sql, NzConnection connection)
     {

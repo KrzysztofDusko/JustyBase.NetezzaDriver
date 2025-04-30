@@ -882,6 +882,38 @@ public class BasicTests : IDisposable
         connection.Close();
     }
 
+    [Fact]
+    private void SampleCommandValidateMethod1()
+    {
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        connection.Open();
+        connection.CommandTimeout = TimeSpan.FromSeconds(0);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT * FROM JUST_DATA..DIMEMPLOYEE";
+        using var rdr = cmd.ExecuteReader();
+        while (rdr.Read())
+        {
+            
+        }
+    }
+    [Fact]
+    private void SampleCommandValidateMethod2()
+    {
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        connection.Open();
+        connection.CommandTimeout = TimeSpan.FromSeconds(0);
+        var cmd = new NzCommand(connection)
+        {
+            CommandText = "SELECT * FROM JUST_DATA..DIMEMPLOYEE"
+        };
+        using var rdr = cmd.ExecuteReader();
+        while (rdr.Read())
+        {
+
+        }
+    }
+
+
 
     [Fact]
     private void ValidateAccessByIndexOrName()
