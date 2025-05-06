@@ -24,9 +24,14 @@ public sealed class NzDataReader : DbDataReader
         }
     }
 
+    private bool _needsToBeNextResultCalled = false;
     public override bool Read()
     {
         if (IsClosed)// do not even try to read if there is no more data
+        {
+            return false;
+        }
+        if (_needsToBeNextResultCalled)
         {
             return false;
         }
@@ -40,6 +45,7 @@ public sealed class NzDataReader : DbDataReader
             if (_nzConnection.NewRowDescriptionReceived())
             {
                 CheckIfRowsAreAvaiable();
+                _needsToBeNextResultCalled = true;
                 return false;
             }
         }
@@ -201,6 +207,7 @@ public sealed class NzDataReader : DbDataReader
 
     public override bool NextResult()
     {
+        _needsToBeNextResultCalled = false;
         return _opened;
     }
 

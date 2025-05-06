@@ -3,6 +3,35 @@
 public class HasRowsTests
 {
 
+    [Theory]
+    [InlineData("SELECT 1 FROM JUST_DATA..DIMDATE LIMIT 1;SELECT 2 FROM JUST_DATA..DIMDATE LIMIT 1","2")]
+    [InlineData("SELECT 1,2;SELECT 2,3; SELECT 3,4; SELECT 4,5", "4")]
+    public void ManyResults(string value1, string expected)
+    {
+        string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        connection.Open();
+        connection.CommandTimeout = TimeSpan.FromSeconds(0);
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = value1;
+
+
+        var reader = cmd.ExecuteReader();
+        int resultCount = 0;
+        do
+        {
+            while (reader.Read())
+            {
+                var obj = reader.GetValue(0);
+            }
+            reader.Read();//unnecessary read by purpose
+            resultCount++;
+        } while (reader.NextResult());
+
+        Assert.Equal(expected, $"{resultCount}");
+    }
+
     [Fact]
     public void Test1()
     {
