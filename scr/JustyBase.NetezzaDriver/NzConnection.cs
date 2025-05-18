@@ -1169,7 +1169,7 @@ public sealed class NzConnection : DbConnection
             //Debug.Assert(standardImplementation == res);
 
             // a bitmap with value of 1 denotes null column
-            if (ColumnIsNull(_tupdesc, data, fieldLf))
+            if (ColumnIsNull(data, fieldLf))
             {
                 rowValue.typeCode = TypeCodeEx.Empty;
                 _logger?.LogDebug("field={Field}, value= NULL", curField + 1);
@@ -1346,13 +1346,13 @@ public sealed class NzConnection : DbConnection
         }
     }
 
-    private static bool ColumnIsNull(DbosTupleDesc tupdesc, byte[] data, int fieldLf)
+    private bool ColumnIsNull(byte[] data, int fieldLf)
     {
-        var decodedColumnNumber = tupdesc.FieldPhysField[fieldLf];
+        var decodedColumnNumber = _tupdesc.FieldPhysField[fieldLf];
         byte numberToTest = data[2 + decodedColumnNumber / 8];
         var numberOfBitToCheck = decodedColumnNumber % 8;
         var columnIsNull = (numberToTest & (1 << numberOfBitToCheck)) != 0;
-        return tupdesc.NullsAllowed != 0 && columnIsNull;
+        return _tupdesc.NullsAllowed != 0 && columnIsNull;
     }
 
     private int CTableIFieldPrecision(int coldex)
@@ -1378,6 +1378,35 @@ public sealed class NzConnection : DbConnection
         var typeModyfier = _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier;
         typeModyfier = typeModyfier >> 16;
         return typeModyfier & 0b0000000000111111;
+    }
+    internal int CTableIFieldSizeAlternative(int coldex)
+    {
+        var ts = _nzCommand.NewPreparedStatement!.Description![coldex].TypeSize;
+        if (ts != -1)
+        {
+            return ts;
+        }
+        if (IsExtendedRowDescriptionAvaiable())
+        {
+            return _tupdesc.FieldSize[coldex];
+        }
+        return _nzCommand.NewPreparedStatement!.Description![coldex].TypeModifier - 16;
+    }
+    internal bool IsColumnNullable(int coldex)
+    {
+        if (!IsExtendedRowDescriptionAvaiable())
+        {
+            return true;
+        }
+        if (_tupdesc.NullsAllowed <= 0)
+        {
+            return false;
+        }
+        if (IsExtendedRowDescriptionAvaiable() && _tupdesc.NullsAllowed > 0)
+        {
+            return _tupdesc.FieldNullAllowed[coldex];
+        }
+        return true;
     }
 
     private int CTableIFieldNumericDigit32Count(int coldex)

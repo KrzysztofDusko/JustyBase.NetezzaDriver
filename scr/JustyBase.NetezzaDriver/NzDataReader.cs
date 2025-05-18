@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
@@ -239,35 +240,85 @@ public sealed class NzDataReader : DbDataReader
 
     public override DataTable? GetSchemaTable()
     {
-        DataTable dt = new DataTable();
+        DataTable dt = new DataTable("Schema Table");
         dt.Columns.Add("ColumnName", typeof(string));
         dt.Columns.Add("ColumnOrdinal", typeof(int));
+        dt.Columns.Add("ColumnSize", typeof(Int16));
         dt.Columns.Add("NumericPrecision", typeof(int));
         dt.Columns.Add("NumericScale", typeof(int));
+#pragma warning disable IL2111 // Method with parameters or return value with `DynamicallyAccessedMembersAttribute` is accessed via reflection. Trimmer can't guarantee availability of the requirements of the method.
+        dt.Columns.Add("DataType", typeof(Type));
+#pragma warning restore IL2111 // Method with parameters or return value with `DynamicallyAccessedMembersAttribute` is accessed via reflection. Trimmer can't guarantee availability of the requirements of the method.
+        dt.Columns.Add("ProviderType", typeof(int));
+        dt.Columns.Add("AllowDBNull", typeof(bool));
+
+        dt.Columns.Add(new DataColumn("IsAutoIncrement", typeof(bool)) { DefaultValue = false });
+        dt.Columns.Add(new DataColumn("IsLong", typeof(bool)) { DefaultValue = false});
+        dt.Columns.Add(new DataColumn("IsReadOnly", typeof(bool)) { DefaultValue = false });
+
+
         for (int ordinal = 0; ordinal < FieldCount; ordinal++)
         {
-            if (GetFieldType(ordinal) == typeof(decimal))
+            var currentType = GetFieldType(ordinal);
+            var fieldSize = _nzConnection.CTableIFieldSizeAlternative(ordinal);
+            var allowDbNull = _nzConnection.IsColumnNullable(ordinal);
+
+            switch (currentType)
             {
-                dt.Rows.Add([
-                    _nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                case Type t when t == typeof(decimal):
+                    dt.Rows.Add([
+                        _nzCommand.NewPreparedStatement!.Description![ordinal].Name
                     , ordinal + 1
-                    ,_nzConnection.CTableIFieldPrecisionAlternative(ordinal), _nzConnection.CTableIFieldScaleAlternative(ordinal)
-                    ]);
-                //if (_nzConnection.IsExtendedRowDescriptionAvaiable())
-                //{
-                //    dt.Rows.Add([_nzConnection.CTableIFieldScale(ordinal)]);
-                //}
-                //else
-                //{ 
-                //    dt.Rows.Add([_nzConnection.CTableIFieldScaleAlternative(ordinal)]);
-                //}
-            }
-            else
-            {
-                dt.Rows.Add([DBNull.Value]);
-            }
+                    , fieldSize
+                    , _nzConnection.CTableIFieldPrecisionAlternative(ordinal)
+                    , _nzConnection.CTableIFieldScaleAlternative(ordinal),
+                        currentType, _nzCommand.NewPreparedStatement!.Description![ordinal].TypeOID, allowDbNull]);
+                    break;
+                case Type t when t == typeof(string):
+                    dt.Rows.Add([_nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                        , ordinal + 1
+                        , fieldSize
+                        , -1
+                        , -1
+                        , currentType, _nzCommand.NewPreparedStatement!.Description![ordinal].TypeOID, allowDbNull]);
+                    break;
+                case Type t when t == typeof(DateTime):
+                    dt.Rows.Add([_nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                        , ordinal + 1
+                        , fieldSize
+                        , -1
+                        , -1
+                        , currentType, _nzCommand.NewPreparedStatement!.Description![ordinal].TypeOID, allowDbNull]);
+                    break;
+                case Type t when t == typeof(TimeSpan):
+                    dt.Rows.Add([_nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                        , ordinal + 1
+                        , fieldSize
+                        , -1
+                        , -1
+                        , currentType, _nzCommand.NewPreparedStatement!.Description![ordinal].TypeOID, allowDbNull]);
+                    break;
+                default:
+                    dt.Rows.Add([_nzCommand.NewPreparedStatement!.Description![ordinal].Name
+                        , ordinal + 1
+                        , fieldSize
+                        , -1
+                        , -1
+                        , currentType, _nzCommand.NewPreparedStatement!.Description![ordinal].TypeOID, allowDbNull]);
+                    break;
+            };
         }
 
         return dt;
     }
 }
+
+
+//CREATE TABLE TEST_NOT_NULL
+//(
+//ID INT NOT NULL
+//)
+//DISTRIBUTE ON RANDOM;
+
+//INSERT INTO TEST_NOT_NULL
+//SELECT 15
