@@ -8,7 +8,9 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using System.Runtime.InteropServices.JavaScript;
 using System.Text;
+using System.Threading;
 
 namespace JustyBase.NetezzaDriver;
 
@@ -16,11 +18,6 @@ public sealed class NzConnection : DbConnection
 {
     private string? _error;
  
-    //private Queue<object> _parameterStatuses = new Queue<object>(100);
-    //private readonly int _maxPreparedStatements = 1000;
-
-    //????
-    //private Dictionary<object, Dictionary<object, Dictionary<object, Dictionary<object, Dictionary<object, object>>>>> _caches = new();
     private int _commandNumber = -1;
 
     public bool InTransaction { get; set; } = false;//TODO
@@ -507,15 +504,6 @@ public sealed class NzConnection : DbConnection
     private void Flush()
     {
         _stream.Flush();
-    }
-    public sealed partial class NzNoticeEventArgs : System.EventArgs
-    {
-        public NzNoticeEventArgs(string message)
-        {
-            Message = message;
-        }
-        public string Message { get; init; }
-        public override string ToString() => Message;
     }
 
     public delegate void NzNoticeEventHandler(object sender, NzNoticeEventArgs e);
@@ -1801,7 +1789,7 @@ public sealed class NzConnection : DbConnection
 
     public override void Open()
     {
-        Open();
+        Open(ClientTypeId.SqlDotnet);
     }
     public void Open(ClientTypeId clientVersionId = ClientTypeId.SqlDotnet)
     {
@@ -1833,6 +1821,7 @@ public sealed class NzConnection : DbConnection
         InTransaction = false;
         _state = ConnectionState.Open;
     }
+
 }
 
 public sealed class NetezzaException : DbException
