@@ -99,7 +99,6 @@ internal static class Core
     //public static byte[] COPY_DONE_MSG;
     //public static byte[] EXECUTE_MSG;
 
-
     //static Core()
     //{
         //FLUSH_MSG  = CreateMessage(FrontendMessageCode.Flush);

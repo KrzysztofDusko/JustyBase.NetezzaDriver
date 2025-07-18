@@ -290,9 +290,9 @@ public sealed class NzConnection : DbConnection
     }
 
 #if NET9_0_OR_GREATER
-    private static readonly Lock _cancelLock = new ();
+    private /*static*/ readonly Lock _cancelLock = new ();
 #else
-    private static readonly object _cancelLock = new ();
+    private /*static*/ readonly object _cancelLock = new ();
 #endif
     //TODO SSL CASE..
     public void CancelQuery()
@@ -1125,10 +1125,6 @@ public sealed class NzConnection : DbConnection
     /// main hot path
     /// </summary>
     /// <param name="nzCommand"></param>
-    /// <param name="tupdesc">can by used local _tupdesc ?? </param>
-    /// boxing TODO, (row[fieldLf] = value, where row is object[] and value is int/long etc..)
-    /// use string interning ?
-    /// use some "field value struct instead of object? " - to reduce boxing (like FieldInfo in SpreadSheetTasks)
     private void ResReadDbosTuple(NzCommand nzCommand)
     {
         int numFields = _tupdesc.NumFields;

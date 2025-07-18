@@ -53,12 +53,12 @@ public class Benchy
     {
         ReaderValues(_nzNewConnection, Query);
     }
-    [Benchmark]
+    //[Benchmark]
     public void JustyNzDriverTyped()
     {
         ReadedTyped(_nzNewConnection, Query);
     }
-    [Benchmark]
+    //[Benchmark]
     public void NzOdbc()
     {
         ReaderValues(_odbcConnection, Query);
