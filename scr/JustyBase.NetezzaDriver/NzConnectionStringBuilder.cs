@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace JustyBase.NetezzaDriver;
 
@@ -14,6 +15,7 @@ public sealed class NzConnectionStringBuilder
     public string Password { get; set; } = string.Empty;
     public int Port { get; set; } = 5480;
     public int Timeout { get; set; } = 0; // 0 means no timeout
+    public ILoggerFactory? LoggerFactory { get; set; }
     //public bool UseSSL { get; set; } = false;
     //public bool UseSSLOnly { get; set; } = false;
     //public string SSLCertFilePath { get; set; } = string.Empty;

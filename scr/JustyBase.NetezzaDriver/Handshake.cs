@@ -1,6 +1,6 @@
-﻿using JustyBase.NetezzaDriver.AbortQuery;
-using JustyBase.NetezzaDriver.Logging;
+using JustyBase.NetezzaDriver.AbortQuery;
 using JustyBase.NetezzaDriver.Utility;
+using Microsoft.Extensions.Logging;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -65,7 +65,7 @@ internal sealed class Handshake
     private Stream _stream; // NetworkStream or sslStream
     private readonly string _host = "";
     private readonly string? _sslCerFilePath;
-    private readonly ISimpleNzLogger? _logger = null!;
+    private readonly ILogger? _logger = null!;
     private readonly string _guardiumClientOS;
     private readonly string _guardiumClientOSUser;
     private readonly string _guardiumClientHostName;
@@ -76,13 +76,13 @@ internal sealed class Handshake
     //private Dictionary<string, string>? _sslParams;
 
     public ClientTypeId NPSCLIENT_TYPE_PYTHON { get; init; } = ClientTypeId.SqlPython;
-    public Handshake(Socket socket, Stream stream, string host,string? sslCerFilePath,  ISimpleNzLogger? logger)
+    public Handshake(Socket socket, Stream stream, string host,string? sslCerFilePath,  ILoggerFactory? loggerFactory)
     {
         _usocket = socket;
         _stream = stream;
         _host = host;
         _sslCerFilePath = sslCerFilePath;
-        _logger = logger;
+        _logger = loggerFactory?.CreateLogger<Handshake>();
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -181,7 +181,7 @@ internal sealed class Handshake
             var md5encoded = MD5.HashData(salt.Concat(passwordBytes).ToArray());
             var md5pwd = Convert.ToBase64String(md5encoded);
             var pwd = md5pwd.TrimEnd('=').ToArray();
-            _logger?.LogDebug("md5 encrypted password is = {Pwd}", pwd);
+            _logger?.LogDebug("md5 encrypted password is = {Pwd}", new string(pwd));
 
             var pwdBytes = Encoding.UTF8.GetBytes(pwd);
             // Int32 - Message length including self.
@@ -205,7 +205,7 @@ internal sealed class Handshake
             var sha256encoded = SHA256.HashData(salt.Concat(passwordBytes).ToArray());
             var sha256pwd = Convert.ToBase64String(sha256encoded);
             var pwd = sha256pwd.TrimEnd('=').ToArray();
-            _logger?.LogDebug("sha256 encrypted password is = {Pwd}", pwd);
+            _logger?.LogDebug("sha256 encrypted password is = {Pwd}", new string(pwd));
 
             var pwdBytes = Encoding.UTF8.GetBytes(pwd);
             // Int32 - Message length including

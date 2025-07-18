@@ -1,8 +1,8 @@
-﻿using JustyBase.NetezzaDriver.AbortQuery;
-using JustyBase.NetezzaDriver.Logging;
+using JustyBase.NetezzaDriver.AbortQuery;
 using JustyBase.NetezzaDriver.StringPool;
 using JustyBase.NetezzaDriver.TypeConvertions;
 using JustyBase.NetezzaDriver.Utility;
+using Microsoft.Extensions.Logging;
 using System.Buffers;
 using System.Data;
 using System.Data.Common;
@@ -41,7 +41,7 @@ public sealed class NzConnection : DbConnection
     Stream _stream = default!;
 
     private readonly List<string> _commandsWithCount = ["INSERT", "DELETE", "UPDATE"];
-    private readonly ISimpleNzLogger? _logger = null!;
+    private readonly ILogger? _logger = null!;
     private readonly bool _tcpKeepAlive = true;
 
     private BackendKeyDataMessage _backendKeyData = null!;
@@ -90,9 +90,10 @@ public sealed class NzConnection : DbConnection
     public const int NzTypeIntvsAbsTimeFIX = 39;//https://github.com/IBM/nzpy/issues/61
 
     public NzConnection(string user, string password, string host, string database,
-        int port = 5480, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+        int port = 5480, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ILoggerFactory? loggerFactory = null)
     {
-        _logger = logger;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory?.CreateLogger<NzConnection>();
         _securityLevel = securityLevel;
         _sslCerFilePath = sslCerFilePath;
         _database = database;
@@ -103,11 +104,12 @@ public sealed class NzConnection : DbConnection
         _tmp_buffer = ArrayPool<byte>.Shared.Rent(4096);
     }
 
-    public NzConnection(string connectionString, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+    public NzConnection(string connectionString, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ILoggerFactory? loggerFactory = null)
     {
         var parameters = ParseConnectionString(connectionString);
 
-        _logger = logger;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory?.CreateLogger<NzConnection>();
         _securityLevel = securityLevel;
         _sslCerFilePath = sslCerFilePath;
         _database = parameters.Database ?? "";
@@ -122,11 +124,12 @@ public sealed class NzConnection : DbConnection
         _tmp_buffer = ArrayPool<byte>.Shared.Rent(4096);
     }
 
-    public NzConnection(string connectionString, string database, int commandTimeoutSec, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ISimpleNzLogger? logger = null)
+    public NzConnection(string connectionString, string database, int commandTimeoutSec, SecurityLevelCode securityLevel = SecurityLevelCode.PreferredUnsecured, string? sslCerFilePath = null, ILoggerFactory? loggerFactory = null)
     {
         var parameters = ParseConnectionString(connectionString);
 
-        _logger = logger;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory?.CreateLogger<NzConnection>();
         _securityLevel = securityLevel;
         _sslCerFilePath = sslCerFilePath;
         _database = database;
@@ -366,7 +369,7 @@ public sealed class NzConnection : DbConnection
             var row = new object[5];
             rdr.GetValues(row);
             _serverVersion = (row[0] as string) ?? "no version info";
-            _logger?.LogDebug("Version info: {row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}",
+            _logger?.LogDebug("Version info: {row0}, {row1}, {row2}, {row3}, {row4}",
                 row[0], row[1], row[2], row[3], row[4]);
         }
 
@@ -381,7 +384,7 @@ public sealed class NzConnection : DbConnection
         {
             var row = new object[2];
             rdr2.GetValues(row);
-            _logger?.LogDebug("Space: {row[0]}, CCSID: {row[1]}", row[0], row[1]);
+            _logger?.LogDebug("Space: {row0}, CCSID: {row1}", row[0], row[1]);
         }
 
         _nzCommand.CommandText = @"select feature from _v_odbc_feature where spec_level = '3.5'";
@@ -390,7 +393,7 @@ public sealed class NzConnection : DbConnection
         {
             var row = new object[1];
             rdr3.GetValues(row);
-            _logger?.LogDebug("Feature: {row[0]}", row[0]);
+            _logger?.LogDebug("Feature: {row0}", row[0]);
         }
         _nzCommand.CommandText = "select identifier_case, current_catalog, current_user";
 
@@ -399,7 +402,7 @@ public sealed class NzConnection : DbConnection
         {
             var row = new object[3];
             rdr4.GetValues(row);
-            _logger?.LogDebug("Case: {row[0]}, Catalog: {row[1]}, User: {row[2]}", row[0], row[1], row[2]);
+            _logger?.LogDebug("Case: {row0}, Catalog: {row1}, User: {row2}", row[0], row[1], row[2]);
         }
 
         return true;
@@ -409,6 +412,7 @@ public sealed class NzConnection : DbConnection
 
     private readonly SecurityLevelCode _securityLevel = SecurityLevelCode.PreferredUnsecured;
     private readonly string? _sslCerFilePath;
+    private readonly ILoggerFactory? _loggerFactory;
 
     private bool _disposed = false;
     protected override void Dispose(bool disposing)
@@ -1083,7 +1087,6 @@ public sealed class NzConnection : DbConnection
 
     private byte[] _tmp_buffer;
     private RowValue[]? _row;
-
 
     public bool UseStringPool { get; set; } = true;
 
@@ -1795,7 +1798,7 @@ public sealed class NzConnection : DbConnection
     {
         _state = ConnectionState.Connecting;
         _stream = Initialize(_host, _port);
-        Handshake handShake = new(_socket, _stream, _host, _sslCerFilePath, _logger)
+        Handshake handShake = new(_socket, _stream, _host, _sslCerFilePath, _loggerFactory)
         {
             NPSCLIENT_TYPE_PYTHON = clientVersionId
         };

@@ -1,4 +1,4 @@
-﻿using JustyBase.NetezzaDriver.Logging;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using System.Diagnostics;
 using Xunit.Abstractions;
 
@@ -25,7 +25,7 @@ public class CommandAbortTest
     [Fact]
     public async Task AbortTestWithSSL()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem", logger: new SimpleNzLogger());
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA", securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem", loggerFactory: new NullLoggerFactory());
         await AbortTestHelper(connection);
     }
 
@@ -71,7 +71,7 @@ public class CommandAbortTest
                     _output.WriteLine(ex.Message);
                     _output.WriteLine("AFTER : " + stopwatch.Elapsed.ToString());
                     await Task.Delay(500);
-                    command.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
+                    command.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} AND COMMAND LIKE '{_heavySql[0..10]}%'";
                     using var rdr = command.ExecuteReader();
                     rdr.Read();
                     Assert.Equal(0, rdr.GetInt64(0));
@@ -101,9 +101,9 @@ public class CommandAbortTest
         F1.PRODUCTKEY    
         , COUNT(DISTINCT (F1.PRODUCTKEY / F2.PRODUCTKEY))    
         FROM     
-        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 25000) F1,    
-        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 25000) F2    
+        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 10000) F1,    
+        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 10000) F2    
         GROUP BY 1    
         LIMIT 500    
-        """;
+    """;
 }

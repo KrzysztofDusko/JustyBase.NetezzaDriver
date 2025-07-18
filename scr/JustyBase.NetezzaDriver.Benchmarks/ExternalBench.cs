@@ -50,7 +50,7 @@ public class ExternalBench
     public static void TestOneExternalTable(DbConnection connection, string tablename, string driverName = "odbc")
     {
         using var command = connection.CreateCommand();
-        var externalPath = $"E:\\{tablename}.dat";
+        var externalPath = $"D:\\TMP\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 
@@ -77,7 +77,7 @@ public class ExternalBench
     public static void TestOneExternalTable1(DbConnection connection, string tablename, string driverName = "odbc")
     {
         using var command = connection.CreateCommand();
-        var externalPath = $"E:\\{tablename}.dat";
+        var externalPath = $"D:\\TMP\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 
@@ -101,7 +101,7 @@ public class ExternalBench
     public static void TestOneExternalTable3(DbConnection connection, string tablename, string driverName = "odbc")
     {
         using var command = connection.CreateCommand();
-        var externalPath = $"E:\\{tablename}.dat";
+        var externalPath = $"D:\\TMP\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 

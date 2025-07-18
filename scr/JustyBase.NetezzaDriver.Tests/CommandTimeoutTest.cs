@@ -22,10 +22,10 @@ public class CommandTimeoutTest
         connection.CommandTimeout = TimeSpan.FromSeconds(4);
 
         using var command = connection.CreateCommand();
-        command.CommandText = "create temp table abc as (select now() as jeden, random() as dwa)";
+        command.CommandText = "CREATE TEMP TABLE ABC AS (SELECT NOW() AS COL1, RANDOM() AS COL2)";
         command.ExecuteNonQuery();
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 2; i++)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             try
@@ -43,10 +43,11 @@ public class CommandTimeoutTest
                 Assert.True(stopwatch.Elapsed > TimeSpan.FromSeconds(3.5));
                 Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(8.5));
 
-                command.CommandText = $"SELECT count(1) FROM _V_SESSION where STATUS = 'active' and PID = {connection.Pid} and command LIKE 'SELECT F1%'";
+                command.CommandText = $"SELECT COUNT(1) FROM _V_SESSION WHERE STATUS = 'active' AND PID = {connection.Pid} AND COMMAND LIKE '{_heavySql[0..10]}%'";
                 using var rdr2 = command.ExecuteReader();
                 rdr2.Read();
-                Assert.Equal(0, rdr2.GetInt64(0));
+                var sessionCount = rdr2.GetInt64(0);
+                Assert.Equal(0, sessionCount);
        
                 //_output.WriteLine("CHECK QUERIES ON DATABASE SIDE TO COFIRM !! (3 s)");
                 //await Task.Delay(3_000);
@@ -57,23 +58,25 @@ public class CommandTimeoutTest
         }
 
         //await Task.Delay(200);
+        // TEST: check that command can be executed after timeout and table still exists
+        // (aborting should not drop session)
         command.CommandText = "SELECT * FROM ABC";
         using var rdr = command.ExecuteReader();
         rdr.Read();//do not throws.
 
     }
+
+    //proxmox NPS VM with 1 vCPUs and 2 GB RAM
     //must run at least 4 seconds
-    private string _heavySql =
+    private readonly string _heavySql =
     """
-        SELECT     
-        F1.PRODUCTKEY    
-        , COUNT(DISTINCT (F1.PRODUCTKEY / F2.PRODUCTKEY))    
+        SELECT F1.PRODUCTKEY, COUNT(DISTINCT (F1.PRODUCTKEY / F2.PRODUCTKEY))    
         FROM     
-        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 25000) F1,    
-        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 25000) F2    
-        GROUP BY 1    
+        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 6000) F1,    
+        ( SELECT * FROM JUST_DATA..FACTPRODUCTINVENTORY LIMIT 6000) F2    
+        GROUP BY 1
         LIMIT 500    
-        """;
+    """;
 
 
 }

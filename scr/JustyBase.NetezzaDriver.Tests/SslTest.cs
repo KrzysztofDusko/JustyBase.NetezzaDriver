@@ -1,4 +1,4 @@
-﻿using JustyBase.NetezzaDriver.Logging;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using System.Security.Authentication;
 using Xunit.Abstractions;
 
@@ -30,7 +30,7 @@ public class SslTest
     public void BasicTests2()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
-            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem", logger: new SimpleNzLogger());
+            securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem", loggerFactory: new NullLoggerFactory());
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT 15 FROM JUST_DATA..DIMDATE";

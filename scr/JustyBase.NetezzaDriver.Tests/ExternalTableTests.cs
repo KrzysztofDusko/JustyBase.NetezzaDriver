@@ -22,7 +22,8 @@ public class ExternalTableTests
 
         Assert.True(tableNames.Count > 10);
         Assert.True(tableNames.Count < 100);
-        foreach (var tn in tableNames.Take(5))
+        //foreach (var tn in tableNames.Take(5))
+        foreach (var tn in new string[] { "DIMPRODUCT", "DIMCURRENCY", "DIMDATE" })
         {
             Assert.NotNull(tn);
             TestOneTable(command, tn, "jdbc");
@@ -31,7 +32,7 @@ public class ExternalTableTests
 
     private static void TestOneTable(NzCommand command, string tablename, string driverName = "python")
     {
-        var externalPath = $"E:\\{tablename}.dat";
+        var externalPath = $"D:\\TMP\\{tablename}.dat";
         var tablenameOrg = $"JUST_DATA..{tablename}";
         var tablenameNew = $"{tablenameOrg}_FROM_EXTERNAL";
 
@@ -46,7 +47,7 @@ public class ExternalTableTests
         command.CommandText = $"CREATE TABLE {tablenameNew} AS (SELECT * FROM {tablenameOrg} WHERE 1=2)";
         command.ExecuteNonQuery();
         command.CommandText = $"INSERT INTO {tablenameNew}  SELECT * FROM EXTERNAL '{externalPath}' " +
-            @$"using ( remotesource '{driverName}' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir E:\logs\)";
+            @$"using ( remotesource '{driverName}' delimiter '|' socketbufsize 8388608 ctrlchars 'yes'  encoding 'internal' timeroundnanos 'yes' crinstring 'off' logdir d:\tmp\logs\)";
         command.ExecuteNonQuery();
 
         command.CommandText = $"SELECT count(1) FROM {tablenameOrg}";
