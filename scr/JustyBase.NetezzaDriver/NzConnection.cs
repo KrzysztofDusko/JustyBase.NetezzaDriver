@@ -290,9 +290,9 @@ public sealed class NzConnection : DbConnection
     }
 
 #if NET9_0_OR_GREATER
-    private /*static*/ readonly Lock _cancelLock = new ();
+    private static readonly Lock _cancelLock = new ();
 #else
-    private /*static*/ readonly object _cancelLock = new ();
+    private static readonly object _cancelLock = new ();
 #endif
     //TODO SSL CASE..
     public void CancelQuery()
