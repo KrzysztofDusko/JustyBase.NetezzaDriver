@@ -908,8 +908,6 @@ public class BasicTests : IDisposable
         }
     }
 
-
-
     [Fact]
     private void ValidateAccessByIndexOrName()
     {
@@ -1001,25 +999,124 @@ public class BasicTests : IDisposable
 
 
     [Fact]
-    private void OdbcAndNzResultsShouldMatch()
+    public void OdbcAndNzResultsShouldMatch()
     {
         foreach (var query in _queryListBasic)
         {
             _output.WriteLine($"Query {query}");    
-            ValidateTypedQueryResults( query);
+            ValidateTypedQueryResultsByGetValue( query);
         }
     }
     [Fact]
-    private void OdbcAndNzResultsShouldMatchSystem()
+    public void OdbcAndNzResultsShouldMatchSystem()
     {
         foreach (var query in _queriesFromSystemTables)
         {
             _output.WriteLine($"Query {query}");
-            ValidateTypedQueryResults(query);
+            ValidateTypedQueryResultsByGetValue(query);
         }
     }
 
-    private void ValidateTypedQueryResults(string query)
+    private readonly string[] _queriesShouldMatchFast =
+    [
+        "SELECT * FROM JUST_DATA..DIMDATE ORDER BY DATEKEY LIMIT 1500",
+        "SELECT NULL FROM ONE_ROW_TABLE UNION ALL SELECT 'XXXX' FROM ONE_ROW_TABLE",
+        "SELECT NULL UNION ALL SELECT 'XXXX'"
+    ];
+
+    [Fact]
+    public void OdbcAndNzResultsShouldMatchFastGetValue()
+    {
+        foreach (var query in _queriesShouldMatchFast)
+        {
+            _output.WriteLine($"Query {query}");
+            ValidateTypedQueryResultsByGetValue(query);
+        }
+    }
+
+    [Fact]
+    public void GetString_OnNullValue_ThrowsException()
+    {
+        // Arrange
+        using var cmd = _nzNewConnection.CreateCommand();
+        cmd.CommandText = "SELECT NULL::VARCHAR(10) as null_text, 'abc' as non_null_text";
+        using var reader = cmd.ExecuteReader();
+
+        // Act & Assert
+        Assert.True(reader.Read());
+
+        // Verify first column (null value)
+        Assert.True(reader.IsDBNull(0));
+        var ex = Assert.Throws<InvalidCastException>(() => reader.GetString(0));
+        Assert.Contains("Cannot cast", ex.Message);
+
+        // Verify second column (non-null value)
+        Assert.False(reader.IsDBNull(1));
+        var value = reader.GetString(1);
+        Assert.Equal("abc", value);
+    }
+
+    [Theory]
+    [InlineData("SELECT NULL::VARCHAR(10), NULL::NVARCHAR(10), NULL::CHAR(10), NULL::NCHAR(10)")]
+    [InlineData("SELECT NULL::VARCHAR(10)")]
+    [InlineData("SELECT NULL::VARCHAR(10) FROM ONE_ROW_TABLE")]
+    public void GetString_OnVariousNullStringTypes_ThrowsException(string query)
+    {
+        // Arrange
+        using var cmd = _nzNewConnection.CreateCommand();
+        cmd.CommandText = query;
+        using var reader = cmd.ExecuteReader();
+
+        // Act & Assert
+        Assert.True(reader.Read());
+
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            Assert.True(reader.IsDBNull(i));
+            var ex = Assert.Throws<InvalidCastException>(() => reader.GetString(i));
+            Assert.Contains("Cannot cast", ex.Message);
+        }
+    }
+
+
+    [Fact]
+    public void GetString_OnMixedNullAndNonNullValues_HandlesCorrectly()
+    {
+        // Arrange
+        using var cmd = _nzNewConnection.CreateCommand();
+        cmd.CommandText = @"
+        SELECT 
+            NULL::VARCHAR(10) as c1,
+            'abc' as c2,
+            NULL::TEXT as c3,
+            'def' as c4,
+            NULL::NCHAR(10) as c5
+    ";
+        using var reader = cmd.ExecuteReader();
+
+        // Act & Assert
+        Assert.True(reader.Read());
+
+        // Test null columns
+        Assert.True(reader.IsDBNull(0));
+        Assert.True(reader.IsDBNull(2));
+        Assert.True(reader.IsDBNull(4));
+
+        // Verify exceptions for null columns
+        Assert.Throws<InvalidCastException>(() => reader.GetString(0));
+        Assert.Throws<InvalidCastException>(() => reader.GetString(2));
+        Assert.Throws<InvalidCastException>(() => reader.GetString(4));
+
+        // Test non-null columns
+        Assert.False(reader.IsDBNull(1));
+        Assert.False(reader.IsDBNull(3));
+        Assert.Equal("abc", reader.GetString(1));
+        Assert.Equal("def", reader.GetString(3));
+    }
+
+
+
+    private void ValidateTypedQueryResultsByGetValue(string query)
     {
         //Stopwatch stopwatch = Stopwatch.StartNew();
         using var cmd1 = _odbcConnection.CreateCommand();
@@ -1123,18 +1220,19 @@ public class BasicTests : IDisposable
             r1 = readerOdbc.Read();
             r2 = readerNz.Read();
         }
-        Assert.Equal(r1,r2);//same number of rows
-        //if (stopwatch.Elapsed.TotalSeconds > 0.2)
-        //{
-        //    _output.WriteLine("XXXX:" + stopwatch.Elapsed.TotalSeconds.ToString());
-        //}        
+        Assert.Equal(r1,r2);//same number of rows    
     }
 
+
+   
     public void Dispose()
     {
         _odbcConnection.Dispose();
         _nzNewConnection.Dispose();
     }
+
+
+
 }
 
 
@@ -1234,3 +1332,6 @@ public class BasicTests : IDisposable
 //    LIMIT 10000
 
 //) DISTRIBUTE ON RANDOM;
+
+
+//CREATE TABLE ONE_ROW_TABLE AS(SELECT 1 AS ID) DISTRIBUTE ON RANDOM;

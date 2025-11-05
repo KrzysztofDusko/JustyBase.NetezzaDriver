@@ -10,6 +10,9 @@ Code is is based on [nzpy](https://github.com/IBM/nzpy) and [npgsql](https://git
 * Support for various Netezza data types.
 * Secure connections with SSL/TLS.
 
+## Behavioral Changes (from v1.4.0)
+Starting from version 1.4.0, the behavior when attempting to retrieve a `NULL` column value as a specific data type (e.g., `string`, `Int16`) has changed. Previously, such retrieval was possible, and users were required to explicitly check for `DBNull` using `IsDBNull`. Now, attempting to retrieve a `NULL` value as a non-nullable type will result in an `InvalidCastException`. This change ensures stricter type enforcement and aligns with common ADO.NET practices. Users should adjust their code to handle `NULL` values appropriately, for example, by checking `IsDBNull` before attempting to cast, or by using nullable types.
+
 ## Requirements
 * .NET 8 or .NET 9
 * C# 12.0

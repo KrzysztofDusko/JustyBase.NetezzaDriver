@@ -42,7 +42,7 @@ public class CommandAbortTest
         {
             for (int i = 0; i < rdr1.FieldCount; i++)
             {
-                Debug.WriteLine(rdr1.GetString(i) + "|");
+                Debug.WriteLine(rdr1.GetValue(i)?.ToString() ?? "" + "|");
             }
             Debug.WriteLine("");
         }

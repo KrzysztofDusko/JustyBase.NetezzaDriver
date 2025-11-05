@@ -173,28 +173,48 @@ public sealed class NzDataReader : DbDataReader
     public override bool GetBoolean(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).boolValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to bool for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Boolean)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to bool");
+        return rw.boolValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override byte GetByte(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).byteValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to by for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Byte)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to byte");
+        return rw.byteValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override char GetChar(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).charValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to char for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Char)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to char");
+        return rw.charValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override DateTime GetDateTime(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).dateTimeValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to DateTime for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.DateTime)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to datetime");
+        return rw.dateTimeValue;
     }
 
 
@@ -202,21 +222,36 @@ public sealed class NzDataReader : DbDataReader
     public override decimal GetDecimal(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).decimalValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to decimal for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Decimal)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to decimal");
+        return rw.decimalValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override double GetDouble(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).doubleValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to double for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Double)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to double");
+        return rw.doubleValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override float GetFloat(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).singleValue;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to float for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Single)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to float");
+        return rw.singleValue;
     }
 
 
@@ -224,28 +259,48 @@ public sealed class NzDataReader : DbDataReader
     public override short GetInt16(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).int16Value;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to Int16 for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Int16)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to Int16");
+        return rw.int16Value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetInt32(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).int32Value;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to Int32 for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Int32)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to Int32");
+        return rw.int32Value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override long GetInt64(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).int64Value;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to Int64 for column {ordinal}");
+        if (rw.typeCode != TypeCodeEx.Int64)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to Int64");
+        return rw.int64Value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override string GetString(int ordinal)
     {
         ValidateOrdinal(ordinal);
-        return _nzCommand.GetValue(ordinal).stringValue ?? string.Empty;
+        ref readonly var rw = ref _nzCommand.GetValue(ordinal);
+        if (rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty)
+            throw new InvalidCastException($"Cannot cast DBNull to string for column {ordinal}");
+        if(rw.typeCode != TypeCodeEx.String)
+            throw new InvalidCastException($"Cannot cast column {ordinal} of type {rw.typeCode} to string");
+        return rw.stringValue ?? string.Empty;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -262,8 +317,6 @@ public sealed class NzDataReader : DbDataReader
         ref readonly var rw = ref _nzCommand.GetValue(ordinal);
         return rw.typeCode == TypeCodeEx.DBNull || rw.typeCode == TypeCodeEx.Empty;
     }
-
-
 
     public override int GetValues(object[] values)
     {
@@ -362,7 +415,7 @@ public sealed class NzDataReader : DbDataReader
 
     // Extension methods for better performance (if RowValue supports them)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T GetFieldValue<T>(int ordinal)
+    public override T GetFieldValue<T>(int ordinal)
     {
         ValidateOrdinal(ordinal);
         return (T)GetValue(ordinal);
