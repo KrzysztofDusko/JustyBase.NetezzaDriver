@@ -1,0 +1,29 @@
+  Trwa okre┼Ťlanie projekt├│w do przywr├│cenia...
+  Wszystkie projekty s─ů aktualne na potrzeby przywr├│cenia.
+  JustyBase.NetezzaDriver -> D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver\bin\Debug\net10.0\JustyBase.NetezzaDriver.dll
+  JustyBase.NetezzaDriver.Tests -> D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver.Tests\bin\Debug\net10.0\JustyBase.NetezzaDriver.Tests.dll
+Przebieg testu dla: D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver.Tests\bin\Debug\net10.0\JustyBase.NetezzaDriver.Tests.dll (.NETCoreApp,Version=v10.0)
+Wersja 18.0.1 (x64) VSTest
+
+Trwa rozpoczynanie wykonywania testu, czekaj...
+┼ü─ůczna liczba plik├│w testowych dopasowanych do okre┼Ťlonego wzorca: 1.
+[xUnit.net 00:00:02.92]     JustyBase.NetezzaDriver.Tests.AuthenticationTests.Open_WithInvalidPassword_ThrowsNetezzaException [FAIL]
+  Niepowodzenie JustyBase.NetezzaDriver.Tests.AuthenticationTests.Open_WithInvalidPassword_ThrowsNetezzaException [2 s]
+  Komunikat o b┼é─Ödzie:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(JustyBase.NetezzaDriver.NetezzaException)
+Actual:   typeof(System.IO.EndOfStreamException)
+---- System.IO.EndOfStreamException : Unable to read beyond the end of the stream.
+  ┼Ülad stosu:
+     at JustyBase.NetezzaDriver.Tests.AuthenticationTests.Open_WithInvalidPassword_ThrowsNetezzaException() in D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver.Tests\AuthenticationTests.cs:line 22
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+----- Inner Stack Trace -----
+   at System.IO.Stream.ReadAtLeastCore(Span`1 buffer, Int32 minimumBytes, Boolean throwOnEndOfStream)
+   at System.IO.Stream.ReadExactly(Byte[] buffer, Int32 offset, Int32 count)
+   at JustyBase.NetezzaDriver.Handshake.ConnConnectionComplete() in D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver\Handshake.cs:line 760
+   at JustyBase.NetezzaDriver.Handshake.Startup(String database, SecurityLevelCode securityLevel, String user, String password, Object pgOptions) in D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver\Handshake.cs:line 130
+   at JustyBase.NetezzaDriver.NzConnection.Open(ClientTypeId clientVersionId) in D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver\NzConnection.cs:line 1820
+   at JustyBase.NetezzaDriver.Tests.AuthenticationTests.<>c__DisplayClass5_0.<Open_WithInvalidPassword_ThrowsNetezzaException>b__0() in D:\DEV\source\repos\PublicNuget\JustyBase.NetezzaDriver\scr\JustyBase.NetezzaDriver.Tests\AuthenticationTests.cs:line 22
+
+Niepowodzenie! ÔÇö niepowodzenie:     1, powodzenie:     0, pomini─Öto:     0, ┼é─ůcznie:     1, czas trwania: 2 s - JustyBase.NetezzaDriver.Tests.dll (net10.0)

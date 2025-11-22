@@ -37,7 +37,7 @@ enum BackendMessageCode : byte
     RowStandard = (byte)'Y',
     RowDescriptionStandard = (byte)'X',
     EmptyQueryResponse = (byte)'I',
-    ErrorResponse = (byte)'E',
+    ErrorResponse = (byte)'E', // 69
     NoData = (byte)'n',
     NoticeResponse = (byte)'N',
     ParameterStatus = (byte)'S',

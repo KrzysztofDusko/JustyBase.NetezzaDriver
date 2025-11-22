@@ -1,6 +1,7 @@
 using JustyBase.NetezzaDriver.AbortQuery;
 using JustyBase.NetezzaDriver.Utility;
 using Microsoft.Extensions.Logging;
+using System.Buffers;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -716,7 +717,7 @@ internal sealed class Handshake
             var response = _stream.ReadByte();
             _logger?.LogInformation("backend response: {Response}", response);
 
-            if (response != (byte)BackendMessageCode.AuthenticationRequest)
+            if (response != (byte)BackendMessageCode.AuthenticationRequest && response != (byte)BackendMessageCode.ErrorResponse)
             {
                 PGUtil.Skip4Bytes(_stream);
                 // do not use just ignore
@@ -755,12 +756,13 @@ internal sealed class Handshake
 
             if (response == (byte)BackendMessageCode.ErrorResponse)
             {
-                int length = PGUtil.ReadInt32(_stream);
-                byte[] bytes = new byte[length];
-                _stream.ReadExactly(bytes, 0, length);
-                string error = Encoding.UTF8.GetString(bytes);
+                byte[] bytes = ArrayPool<byte>.Shared.Rent(1024);
+                int readed = _stream.Read(bytes, 0, 1024);
+                string error = Encoding.UTF8.GetString(bytes,0, readed);
+                ArrayPool<byte>.Shared.Return(bytes);
                 _logger?.LogWarning("Error occurred, server response: {Error}", error);
-                return false;
+                throw new NetezzaException(error);
+                //return false;
             }
         }
     }
