@@ -1,5 +1,6 @@
 ﻿namespace JustyBase.NetezzaDriver.Tests;
 
+[Collection("Sequential")]
 public class InvalidSqlTests
 {
     private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
@@ -36,5 +37,31 @@ public class InvalidSqlTests
         command.CommandText = "SELECT 1,,2;SELECT 1,2";
         Assert.Throws<NetezzaException>(() => command.ExecuteScalar());
     }
-}
 
+
+
+    [Theory]
+    [InlineData("SELECT 1/0 FROM TEST_NUM_TXT")]
+    [InlineData("SELECT SUM(X.COL::INT) FROM TEST_NUM_TXT X")]
+    [InlineData("SELECT * FROM TEST_NUM_TXT X JOIN TEST_NUM_TXT X2 ON X.COL::INT = X2.COL::INT")]
+    [InlineData("SELECT 'X'::INT FROM TEST_NUM_TXT")]
+    [InlineData("SELECT 'X'::INT")]
+    public void SqlQueries_WithExpectedExceptions_ShouldThrowException(string sql)
+    {
+        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        connection.Open();
+        var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+
+        Assert.ThrowsAny<Exception>(() =>
+        {
+            var rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                // Just iterate through the results if no exception is thrown
+            }
+        });
+
+    }
+}
+    

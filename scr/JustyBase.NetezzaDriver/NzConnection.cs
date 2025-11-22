@@ -8,9 +8,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
-using System.Runtime.InteropServices.JavaScript;
 using System.Text;
-using System.Threading;
 
 namespace JustyBase.NetezzaDriver;
 
@@ -525,7 +523,19 @@ public sealed class NzConnection : DbConnection
 
     public TimeSpan CommandTimeout { get; set; } =  TimeSpan.FromSeconds(60);
     [AllowNull]
-    public override string ConnectionString { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public override string ConnectionString {
+        get => new NzConnectionStringBuilder()
+        {
+            Host = _host,
+            Database = _database,
+            UserName = _user,
+            Password = _password,
+            Port= _port,
+            Timeout= (int)ConnectionTimeoutDuration.TotalSeconds,
+            LoggerFactory= _loggerFactory
+        }.ConnectionString;
+        set => throw new NotImplementedException(); 
+    }
 
     public override string Database => _database;
 
@@ -634,6 +644,15 @@ public sealed class NzConnection : DbConnection
             ReadNextResponseByte();
         }
         var res = IntepretReturnedByte(nzCommand);
+        if (_error != null)
+        {
+            while (res && _shouldReadByte)
+            {
+                ReadNextResponseByte();
+                res = IntepretReturnedByte(nzCommand);
+            }
+            throw new NetezzaException(_error);
+        }
         return res;
     }
 

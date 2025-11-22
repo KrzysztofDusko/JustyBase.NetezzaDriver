@@ -1,7 +1,10 @@
 ﻿using System.Data.Odbc;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace JustyBase.NetezzaDriver.Tests;
+
+[Collection("Sequential")]
 
 public class BasicTests : IDisposable
 {
@@ -846,7 +849,6 @@ public class BasicTests : IDisposable
         "SELECT * FROM SYSTEM.ADMIN._V_SYS_DB_OWNER LIMIT 1000"
     ];
 
-
     [Theory]
     [InlineData("SELECT '2 years 5 hours 11 months 41 minutes 15 sec'::interval FROM JUST_DATA..DIMDATE LIMIT 1", "2 years 11 mons 05:41:15 String")]
     [InlineData("SELECT '5 hours 41 minutes  15 sec'::interval FROM JUST_DATA..DIMDATE LIMIT 1", "05:41:15 String")]
@@ -867,8 +869,54 @@ public class BasicTests : IDisposable
         Assert.Equal(expected, result);
     }
 
+
+    //CREATE TABLE TEST_NUM_TXT AS SELECT '1' AS COL
+    //INSERT INTO  TEST_NUM_TXT SELECT 'X';
+
+
     [Fact]
-    private void TestConenctionString()
+    public void SqlQueries_WithExpectedExceptions_ShouldThrowException()
+    {
+        using var cmd = _nzNewConnection.CreateCommand();
+        cmd.CommandText = "SELECT 1/0 FROM TEST_NUM_TXT";
+
+        Assert.ThrowsAny<Exception>(() =>
+        {
+            var rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                // Just iterate through the results if no exception is thrown
+            }
+        });
+
+        using var cmdCatalog = _nzNewConnection.CreateCommand();
+        cmdCatalog.CommandText = "SELECT CURRENT_CATALOG";
+        var res = cmdCatalog.ExecuteScalar() as string;
+    }
+
+    [Fact]
+    public void SqlQueries_WithExpectedExceptions_ShouldThrowException_2()
+    {
+        using var cmd = _nzNewConnection.CreateCommand();
+        cmd.CommandText = "SELECT SUM(X.COL::INT) FROM TEST_NUM_TXT X";
+
+        Assert.ThrowsAny<Exception>(() =>
+        {
+            var rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                // Just iterate through the results if no exception is thrown
+            }
+        });
+
+        using var cmdCatalog = _nzNewConnection.CreateCommand();
+        cmdCatalog.CommandText = "SELECT CURRENT_CATALOG";
+        var res = cmdCatalog.ExecuteScalar() as string;
+    }
+
+
+    [Fact]
+    public void TestConenctionString()
     {
         string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
         using var connection = new NzConnection(connectionString);
@@ -878,7 +926,7 @@ public class BasicTests : IDisposable
     }
 
     [Fact]
-    private void SampleCommandValidateMethod1()
+    public void SampleCommandValidateMethod1()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
@@ -892,7 +940,7 @@ public class BasicTests : IDisposable
         }
     }
     [Fact]
-    private void SampleCommandValidateMethod2()
+    public void SampleCommandValidateMethod2()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
@@ -909,7 +957,7 @@ public class BasicTests : IDisposable
     }
 
     [Fact]
-    private void ValidateAccessByIndexOrName()
+    public void ValidateAccessByIndexOrName()
     {
         using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
         connection.Open();
@@ -942,7 +990,7 @@ public class BasicTests : IDisposable
 
 
     [Fact]
-    private void ValidateAccessByIndexOrName2()
+    public void ValidateAccessByIndexOrName2()
     {
         string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
         using var connection = new NzConnection(connectionString);
@@ -977,7 +1025,7 @@ public class BasicTests : IDisposable
 
 
     [Fact]
-    private void CheckDateTimeConsistency()
+    public void CheckDateTimeConsistency()
     {
         string[] queries = ["DROP TABLE NEW_CREATED_TABLE IF EXISTS;\r\nCREATE TABLE NEW_CREATED_TABLE AS (SELECT NOW() AS CREATION_DATE_TIME);SELECT CREATEDATE,NOW()::datetime::varchar(30) FROM _V_TABLE WHERE TABLENAME = 'NEW_CREATED_TABLE'",
         "SELECT CREATEDATE,CREATEDATE::datetime::varchar(30) FROM SYSTEM.ADMIN._V_TABLE_STORAGE_STAT WHERE OBJTYPE = 'TABLE' AND TABLENAME = 'NEW_CREATED_TABLE'",
@@ -1223,15 +1271,11 @@ public class BasicTests : IDisposable
         Assert.Equal(r1,r2);//same number of rows    
     }
 
-
-   
     public void Dispose()
     {
         _odbcConnection.Dispose();
         _nzNewConnection.Dispose();
     }
-
-
 
 }
 
@@ -1292,6 +1336,7 @@ public class BasicTests : IDisposable
 //    , 10000*(0.5 - RANDOM())::numeric(20,8) AS C44
 //    , 10000*(0.5 - RANDOM())::numeric(20,8) AS C45
     
+        
 //    , 10000*(0.5 - RANDOM())::numeric(24,0) AS C46
 //    , 10000*(0.5 - RANDOM())::numeric(24,1) AS C47
 //    , 10000*(0.5 - RANDOM())::numeric(24,2) AS C48

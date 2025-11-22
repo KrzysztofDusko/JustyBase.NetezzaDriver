@@ -2,6 +2,7 @@
 
 namespace JustyBase.NetezzaDriver.Tests;
 
+[Collection("Sequential")]
 public class ExternalTableTests
 {
     private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");

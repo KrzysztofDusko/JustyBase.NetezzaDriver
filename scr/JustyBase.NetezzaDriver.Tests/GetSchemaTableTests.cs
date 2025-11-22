@@ -2,6 +2,8 @@
 
 namespace JustyBase.NetezzaDriver.Tests;
 
+[Collection("Sequential")]
+
 public class GetSchemaTableTests
 {
     [Fact]
