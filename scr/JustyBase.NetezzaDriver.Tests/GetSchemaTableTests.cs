@@ -9,9 +9,8 @@ public class GetSchemaTableTests
     [Fact]
     public void GetSchemaTable_ReturnsCorrectColumnSchema()
     {
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -55,9 +54,7 @@ public class GetSchemaTableTests
     {
         string sql = "DROP TABLE TEST_NOT_NULL IF EXISTS;\r\nCREATE TABLE TEST_NOT_NULL \r\n(\r\nID INT NOT NULL\r\n) \r\nDISTRIBUTE ON RANDOM;\r\n\r\nINSERT INTO TEST_NOT_NULL SELECT 15;";
 
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -76,9 +73,7 @@ public class GetSchemaTableTests
     {
         string sql = "DROP TABLE TEST_NOT_NULL IF EXISTS;\r\nCREATE TABLE TEST_NOT_NULL \r\n(\r\nID INT NOT NULL\r\n,ID2 INT\r\n) \r\nDISTRIBUTE ON RANDOM;\r\n\r\nINSERT INTO TEST_NOT_NULL SELECT 15;";
 
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -98,9 +93,7 @@ public class GetSchemaTableTests
     [Fact]
     public void GetSchemaTable_TextColumnSizes()
     {
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -142,9 +135,7 @@ public class GetSchemaTableTests
     public void GetSchemaTable_EmptyResultSet()
     {
         // Existing test updated with new column checks
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -168,9 +159,7 @@ public class GetSchemaTableTests
     [Fact]
     public void GetSchemaTable_VaryingColumnSizes()
     {
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 
@@ -204,8 +193,7 @@ public class GetSchemaTableTests
     [Fact]
     public void NumericPrecisionScaleTest()
     {
-        string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
         using var cmd = connection.CreateCommand();
@@ -251,9 +239,7 @@ public class GetSchemaTableTests
     [Fact]
     public void GetSchemaTable_ComputedColumns()
     {
-        string password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD")
-            ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using var connection = new NzConnection("admin", password, "linux.local", "JUST_DATA");
+        using var connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var cmd = connection.CreateCommand();
 

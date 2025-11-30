@@ -5,12 +5,11 @@ namespace JustyBase.NetezzaDriver.Tests;
 [Collection("Sequential")]
 public class TransactionTests
 {
-    private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
 
     [Fact]
     public void BasicTransactionsTests()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         using var command = connection.CreateCommand();
 

@@ -5,12 +5,11 @@ namespace JustyBase.NetezzaDriver.Tests;
 [Collection("Sequential")]
 public class ExternalTableTests
 {
-    private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
 
     [Fact]
     public void TestExternalTable()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open(ClientTypeId.SqlJdbc);
         using NzCommand command = (NzCommand)connection.CreateCommand();
         command.CommandText = "SELECT TABLENAME FROM JUST_DATA.._V_TABLE WHERE OBJTYPE = 'TABLE' AND TABLENAME NOT LIKE '%EXTERNAL' ORDER BY CREATEDATE ASC";
@@ -30,6 +29,51 @@ public class ExternalTableTests
             TestOneTable(command, tn, "jdbc");
         }
     }
+
+
+    //'D:\\TMP\\DIMACCOUNT_EXT.DAT' contains compressed data
+    [Fact]
+    public void CompressedExternalTableReadShouldNotThrow()
+    {
+        var sql = """
+            INSERT INTO JUST_DATA..DIMACCOUNT_TMP
+            SELECT * FROM 
+            EXTERNAL 'D:\\TMP\\DIMACCOUNT_EXT.DAT'
+            USING
+            (
+                Format 'Internal'
+                REMOTESOURCE 'dotnet'
+                Compress 'True'
+            );
+            """;
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
+        connection.Open();
+        using NzCommand command = connection.CreateCommand(sql);
+        command.ExecuteNonQuery();
+
+        command.CommandText =
+        """
+        SELECT COUNT(1) FROM
+            
+            (
+            SELECT * FROM JUST_DATA..DIMACCOUNT_TMP
+            MINUS
+            SELECT * FROM JUST_DATA..DIMACCOUNT
+            ) X
+        """;
+        var cnt = (long)command.ExecuteScalar()!;
+        Assert.Equal(0, cnt);
+
+        command.CommandText = "SELECT count(1) from JUST_DATA..DIMACCOUNT_TMP";
+        var totalCnt = (long)command.ExecuteScalar()!;
+        Assert.NotEqual(0, totalCnt);
+
+        command.CommandText = "TRUNCATE TABLE JUST_DATA..DIMACCOUNT_TMP";
+        command.ExecuteNonQuery();
+        command.CommandText = "GROOM TABLE JUST_DATA..DIMACCOUNT_TMP";
+        command.ExecuteNonQuery();
+    }
+
 
     private static void TestOneTable(NzCommand command, string tablename, string driverName = "python")
     {

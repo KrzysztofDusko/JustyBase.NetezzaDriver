@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace JustyBase.NetezzaDriver;
+﻿namespace JustyBase.NetezzaDriver;
 
 public sealed partial class NzNoticeEventArgs : System.EventArgs
 {

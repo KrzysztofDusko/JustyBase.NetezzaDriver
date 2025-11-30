@@ -7,8 +7,6 @@ namespace JustyBase.NetezzaDriver.Tests;
 [Collection("Sequential")]
 public class SslTest
 {
-    private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-
     private readonly ITestOutputHelper _output;
     public SslTest(ITestOutputHelper output)
     {
@@ -17,7 +15,7 @@ public class SslTest
     [Fact]
     public void BasicTests()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName,
             securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem");
         //this cert file is invalid
         Assert.Throws<AuthenticationException>(() =>
@@ -30,7 +28,7 @@ public class SslTest
     [Fact]
     public void BasicTests2()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA",
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName,
             securityLevel: SecurityLevelCode.OnlySecuredSession, sslCerFilePath: @"D:\DEV\Others\keys\server-cert.pem", loggerFactory: new NullLoggerFactory());
         connection.Open();
         using var command = connection.CreateCommand();

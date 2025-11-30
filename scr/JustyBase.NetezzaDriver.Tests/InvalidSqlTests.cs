@@ -3,12 +3,10 @@
 [Collection("Sequential")]
 public class InvalidSqlTests
 {
-    private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-
     [Fact]
-    private void ReaderShouldThrow()
+    public void ReaderShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var command = connection.CreateCommand();
@@ -17,9 +15,9 @@ public class InvalidSqlTests
     }
 
     [Fact]
-    private void ExecuteNonQueryShouldThrow()
+    public void ExecuteNonQueryShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var command = connection.CreateCommand();
@@ -28,9 +26,9 @@ public class InvalidSqlTests
     }
 
     [Fact]
-    private void ExecuteScalarShouldThrow()
+    public void ExecuteScalarShouldThrow()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(120);
         using var command = connection.CreateCommand();
@@ -48,7 +46,7 @@ public class InvalidSqlTests
     [InlineData("SELECT 'X'::INT")]
     public void SqlQueries_WithExpectedExceptions_ShouldThrowException(string sql)
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         var cmd = connection.CreateCommand();
         cmd.CommandText = sql;

@@ -9,21 +9,16 @@ namespace JustyBase.NetezzaDriver.Tests;
 public class BasicTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
-    private const string _host = "linux.local";
-    private const string _dbName = "JUST_DATA";
-    private const string _userName = "admin";
-    private static readonly string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-    private const int _port = 5480;
 
     OdbcConnection _odbcConnection;
     NzConnection _nzNewConnection;
     public BasicTests(ITestOutputHelper output)
     {
         _output = output;
-        _odbcConnection = new OdbcConnection($"Driver={{NetezzaSQL}};servername={_host};port={_port};database={_dbName};username={_userName};password={_password}");
+        _odbcConnection = new OdbcConnection($"Driver={{NetezzaSQL}};servername={Config.Host};port={Config.Port};database={Config.DbName};username={Config.UserName};password={Config.Password}");
         _odbcConnection.Open();
 
-        _nzNewConnection = new NzConnection(_userName, _password, _host, _dbName, _port);
+        _nzNewConnection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName, Config.Port);
         _nzNewConnection.Open();
     }
 
@@ -918,7 +913,7 @@ public class BasicTests : IDisposable
     [Fact]
     public void TestConenctionString()
     {
-        string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
+        string connectionString = $"xyz=123;USERNAME={Config.UserName};PASSWORD={Config.Password};PORT={Config.Port};HOST={Config.Host};DATABASE={Config.DbName};TIMEOUT=5;";
         using var connection = new NzConnection(connectionString);
         connection.Open();
         Assert.True(connection.State == System.Data.ConnectionState.Open, "Connection should be open");
@@ -928,7 +923,7 @@ public class BasicTests : IDisposable
     [Fact]
     public void SampleCommandValidateMethod1()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
         using var cmd = connection.CreateCommand();
@@ -942,7 +937,7 @@ public class BasicTests : IDisposable
     [Fact]
     public void SampleCommandValidateMethod2()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
         var cmd = new NzCommand(connection)
@@ -959,7 +954,7 @@ public class BasicTests : IDisposable
     [Fact]
     public void ValidateAccessByIndexOrName()
     {
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
         using var cmd = connection.CreateCommand();
@@ -992,7 +987,7 @@ public class BasicTests : IDisposable
     [Fact]
     public void ValidateAccessByIndexOrName2()
     {
-        string connectionString = $"xyz=123;USERNAME={_userName};PASSWORD={_password};PORT={_port};HOST={_host};DATABASE={_dbName};TIMEOUT=5;";
+        string connectionString = $"xyz=123;USERNAME={Config.UserName};PASSWORD={Config.Password};PORT={Config.Port};HOST={Config.Host};DATABASE={Config.DbName};TIMEOUT=5;";
         using var connection = new NzConnection(connectionString);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);

@@ -9,8 +9,7 @@ public class HasRowsTests
     [InlineData("SELECT 1,2;SELECT 2,3; SELECT 3,4; SELECT 4,5", "4")]
     public void ManyResults(string value1, string expected)
     {
-        string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
 
@@ -70,8 +69,7 @@ public class HasRowsTests
 
     private List<bool> Helper(string query)
     {
-        string _password = Environment.GetEnvironmentVariable("NZ_DEV_PASSWORD") ?? throw new InvalidOperationException("Environment variable NZ_PASSWORD is not set.");
-        using NzConnection connection = new NzConnection("admin", _password, "linux.local", "JUST_DATA");
+        using NzConnection connection = new NzConnection(Config.UserName, Config.Password, Config.Host, Config.DbName);
         connection.Open();
         connection.CommandTimeout = TimeSpan.FromSeconds(0);
 

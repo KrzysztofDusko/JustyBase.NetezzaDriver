@@ -247,13 +247,22 @@ public sealed class NzConnection : DbConnection
 
     public override int ConnectionTimeout => (int)ConnectionTimeoutDuration.TotalSeconds;
 
-    private Stream Initialize(string host, int port)
+
+    private const int _bufferSize = 65536; // 64 KB
+    private Stream Initialize(string host, int port, bool useBufferedStream = true, bool setSocketBufferSizes = false)
     {
         try
         {
             if (host is not null)
             {
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                if (setSocketBufferSizes)
+                {
+                    _socket.ReceiveBufferSize = 65536;  // 64 KB
+                    _socket.SendBufferSize = 65536;     // 64 KB
+                }
+                //if (noDelay)
+                //    _socket.NoDelay = true;
             }
             else
             {
@@ -271,14 +280,22 @@ public sealed class NzConnection : DbConnection
                 _socket.EndConnect(beginConnect);
                 //_socket.Connect(host, port);
             }
+
             var baseStream = new NetworkStream(_socket, ownsSocket: true);
-            var tmpStream = new BufferedStream(baseStream);
+            
 
             if (_tcpKeepAlive)
             {
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
             }
-            return tmpStream;
+            if (useBufferedStream)
+            {
+                return new BufferedStream(baseStream, _bufferSize);
+            }
+            else
+            {
+                return baseStream;
+            }
         }
         catch (Exception ex)
         {
@@ -837,15 +854,13 @@ public sealed class NzConnection : DbConnection
     }
 
 
-
-    //(from file/pipe to Nz) = upload = import to database
     private void XferTable()
     {
         PGUtil.Skip4Bytes(_stream);
         int clientVersion = 1;
 
         byte charByte = Read(1)[0];
-        
+
         var filenameBuf = new List<byte> { charByte };
         while (true)
         {
@@ -860,9 +875,7 @@ public sealed class NzConnection : DbConnection
         string filename = NzConnectionHelpers.ClientEncoding.GetString(filenameBuf.ToArray());
 
         int hostVersion = PGUtil.ReadInt32(_stream);
-        //Write(Core.IPack(clientVersion));
         PGUtil.WriteInt32(_stream, clientVersion);
-
 
         Flush();
 
@@ -872,59 +885,64 @@ public sealed class NzConnection : DbConnection
 
         try
         {
-            //if file is utf8 encoded, we can skip reencoding..
-            using (var filehandle = new StreamReader(filename))
+            using var filehandle = File.OpenRead(filename);
+
+            if (_logger ?.IsEnabled(LogLevel.Information) == true)
             {
                 _logger?.LogInformation("Successfully opened External file to read: {Filename}", filename);
-                char[] charsBuffer = ArrayPool<char>.Shared.Rent(blockSize);
-                byte[] bytesBuffer = ArrayPool<byte>.Shared.Rent(4 * blockSize);//utf8 is max 4 bytes per char
-                while (true)
+            }           
+
+            byte[] bytesBuffer = ArrayPool<byte>.Shared.Rent(blockSize);
+            while (true)
+            {
+                int bytesReaded = filehandle.Read(bytesBuffer, 0, blockSize);
+                if (bytesReaded == 0)
                 {
-                    int charsReaded = filehandle.Read(charsBuffer, 0, blockSize);
-                    if (charsReaded == 0)
-                    {
-                        break;
-                    }
-
-                    Span<byte> dataBytes = bytesBuffer.AsSpan(); 
-                    int bytesCount = Encoding.UTF8.GetBytes(charsBuffer.AsSpan(0, charsReaded), dataBytes);
-                    dataBytes = dataBytes[..bytesCount];
-
-                    if (blockSize < dataBytes.Length)
-                    {
-                        int diff = dataBytes.Length - blockSize;
-
-                        PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
-                        PGUtil.WriteInt32(_stream, blockSize);
-                        WriteSpan(dataBytes[..blockSize]);
-                        Flush();
-
-                        PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
-                        PGUtil.WriteInt32(_stream, diff);
-                        WriteSpan(dataBytes[blockSize..]);
-                        Flush();
-                    }
-                    else
-                    {
-                        PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
-                        PGUtil.WriteInt32(_stream, dataBytes.Length);
-                        WriteSpan(dataBytes);
-                        Flush();
-                    }
-                    _logger?.LogDebug("No. of bytes sent to BE: {BytesSent}", dataBytes.Length);
+                    break;
                 }
-                ArrayPool<byte>.Shared.Return(bytesBuffer);
-                ArrayPool<char>.Shared.Return(charsBuffer);
-                PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DONE);
-                Flush();
-                _logger?.LogInformation("sent EXTAB_SOCK_DONE to reader");
+
+                Span<byte> dataBytes = bytesBuffer.AsSpan();
+                dataBytes = dataBytes[..bytesReaded];
+
+                if (blockSize < dataBytes.Length)
+                {
+                    int diff = dataBytes.Length - blockSize;
+
+                    PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
+                    PGUtil.WriteInt32(_stream, blockSize);
+                    WriteSpan(dataBytes[..blockSize]);
+                    Flush();
+
+                    PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
+                    PGUtil.WriteInt32(_stream, diff);
+                    WriteSpan(dataBytes[blockSize..]);
+                    Flush();
+                }
+                else
+                {
+                    PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DATA);
+                    PGUtil.WriteInt32(_stream, dataBytes.Length);
+                    WriteSpan(dataBytes);
+                    Flush();
+                }
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger?.LogDebug("No. of bytes sent to BE: {BytesSent}", dataBytes.Length);
+                }                
+
             }
+            ArrayPool<byte>.Shared.Return(bytesBuffer);
+            PGUtil.WriteInt32(_stream, Core.EXTAB_SOCK_DONE);
+            Flush();
+            _logger?.LogInformation("sent EXTAB_SOCK_DONE to reader");
+
         }
         catch (Exception)
         {
             _logger?.LogWarning("Error opening file");
         }
     }
+
     private bool GetFileFromBE(string logDir, string filename, int logType)
     {
         bool status = true;
@@ -988,6 +1006,7 @@ public sealed class NzConnection : DbConnection
 
         return status;
     }
+
 
     private void ReceiveAndWriteDataToExternal(FileStream fh)
     {
@@ -1804,15 +1823,14 @@ public sealed class NzConnection : DbConnection
         return (NzCommand)CreateDbCommand(sql);
     }
 
-
     public override void Open()
     {
         Open(ClientTypeId.SqlDotnet);
     }
-    public void Open(ClientTypeId clientVersionId = ClientTypeId.SqlDotnet)
+    public void Open(ClientTypeId clientVersionId = ClientTypeId.SqlDotnet, bool useBufferedStream = true, bool setSocketBufferSizes = false)
     {
         _state = ConnectionState.Connecting;
-        _stream = Initialize(_host, _port);
+        _stream = Initialize(_host, _port, useBufferedStream, setSocketBufferSizes);
         Handshake handShake = new(_socket, _stream, _host, _sslCerFilePath, _loggerFactory)
         {
             NPSCLIENT_TYPE_PYTHON = clientVersionId
